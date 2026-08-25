@@ -1,6 +1,5 @@
 #include "pc_aligner/aligner_node.hpp"
 
-#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <filesystem>
 #include <memory>
 #include <open3d/geometry/PointCloud.h>
@@ -29,6 +28,8 @@ AlignerNode::AlignerNode() : Node("pc_aligner")
     declare_parameter("align_model", "mesh");
     declare_parameter("mesh", "bg2align.stl");
     declare_parameter("pointcloud", "bg2align.pcd");
+    // radar_bringup 包已拆除：场地模型统一放工作空间顶层 resource/
+    declare_parameter("resource_path", "/home/robot/Mid-70_perception_module/resource");
 
     declare_parameter("manual_crop.min", std::vector<double> { 0, -15., -15. });
     declare_parameter("manual_crop.max", std::vector<double> { 25., 15., 15. });
@@ -135,7 +136,7 @@ Eigen::Isometry3d AlignerNode::get_middle_trans()
 void AlignerNode::prepare_meshes()
 {
     std::string align_model = get_parameter("align_model").as_string();
-    std::filesystem::path meshes_path = std::filesystem::path(ament_index_cpp::get_package_share_directory("radar_bringup")) / "resource";
+    std::filesystem::path meshes_path = std::filesystem::path(get_parameter("resource_path").as_string());
 
     RCLCPP_INFO(get_logger(), "align model: %s", align_model.c_str());
     RCLCPP_INFO(get_logger(), "meshes path: %s", meshes_path.c_str());

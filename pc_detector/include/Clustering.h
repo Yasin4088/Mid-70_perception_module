@@ -7,6 +7,9 @@
 
 namespace pc_detector {
 
+// 半径内最多保留的邻域数，防止大平面点云邻域表内存爆炸
+constexpr int MAX_NN = 32;
+
 struct BucketSet {
     std::vector<char> bucket;
     size_t size;
@@ -67,7 +70,7 @@ inline std::vector<int> DifferingDBSCAN(
         [&](const tbb::blocked_range<int>& r) {
             for (int idx = r.begin(); idx < r.end(); ++idx) {
                 std::vector<double> dists2;
-                kdtree.SearchRadius(cloud.points_[idx], eps, nbs[idx], dists2);
+                kdtree.SearchHybrid(cloud.points_[idx], eps, MAX_NN, nbs[idx], dists2);
             }
         });
 
@@ -137,7 +140,7 @@ inline std::vector<int> NormalDBSCAN(
         [&](const tbb::blocked_range<int>& r) {
             for (int idx = r.begin(); idx < r.end(); ++idx) {
                 std::vector<double> dists2;
-                kdtree.SearchRadius(cloud.points_[idx], eps, nbs[idx], dists2);
+                kdtree.SearchHybrid(cloud.points_[idx], eps, MAX_NN, nbs[idx], dists2);
             }
         });
 

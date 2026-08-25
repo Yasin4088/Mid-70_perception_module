@@ -34,6 +34,11 @@ struct Z_Map {
         , grid_size(((grid_max - grid_min) / voxel_size + Eigen::Vector3d::Ones()).cast<int>())
         , z_map(Eigen::MatrixXf::Zero(grid_size[0], grid_size[1]))
     {
+        if (!mesh || mesh->IsEmpty()) {
+            // 无场地 mesh：z_map 保持全 0，即默认地面高度 0
+            // （与 project_ground 越界分支返回 z=0 的既有约定一致）
+            return;
+        }
         double z_max = bbox.max_bound_(2);
         open3d::t::geometry::RaycastingScene scene_r;
         scene_r.AddTriangles(open3d::t::geometry::TriangleMesh::FromLegacy(*mesh));

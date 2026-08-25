@@ -10,25 +10,10 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies(REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/DetectedTarget.msg"
-  "msg/DetectedTargetArray.msg"
   "msg/Target.msg"
   "msg/TargetArray.msg"
-  "msg/MatchResult.msg"
-  "msg/MatchedTarget.msg"
-  "msg/Armor.msg"
-  "msg/FeedbackTarget.msg"
-  "msg/FeedbackTargetArray.msg"
-  "msg/judge/MapRobotData.msg"
-  "msg/judge/RadarCmd.msg"
-  "msg/judge/RadarInfo.msg"
-  "msg/judge/RadarMarkData.msg"
-  "msg/judge/MapCommand.msg"
-  "msg/judge/GameRobotHP.msg"
-  "msg/judge/UwbData.msg"
   "srv/AutoAlign.srv"
-  "srv/Detect.srv"
-  DEPENDENCIES geometry_msgs sensor_msgs std_msgs
+  DEPENDENCIES std_msgs
 )
 rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
 

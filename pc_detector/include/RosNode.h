@@ -44,7 +44,7 @@ private:
     tf2_ros::Buffer::SharedPtr tf_buffer;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener;
 
-    bool mesh_filter_mode;
+    bool mesh_filter_mode = false;
     std::shared_ptr<open3d::geometry::TriangleMesh> mesh_ori;
     std::shared_ptr<open3d::geometry::TriangleMesh> mesh_filter;
     std::shared_ptr<open3d::geometry::PointCloud> pc_filter;

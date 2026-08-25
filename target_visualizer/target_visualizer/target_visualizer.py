@@ -2,17 +2,11 @@ import os
 import rclpy
 import rclpy.qos
 import numpy as np
-from ament_index_python import get_package_share_directory
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from radar_interface.msg import TargetArray, Target
 
 import cv2
-
-configs = {
-    "real_width": 28.0,
-    "real_height": 15.0,
-}
 
 # Target:
 # uint64 id
@@ -28,7 +22,19 @@ class TargetVisualizer(Node):
     def __init__(self):
         super().__init__('target_visualizer')
         self.get_logger().info('Initializing target_visualizer...')
-        self.ori_img = cv2.imread(os.path.join(get_package_share_directory('radar_bringup'), 'resource', 'map.png'))
+        # 地图底图与实际场地尺寸，接入新项目时按需覆盖
+        # radar_bringup 包已拆除：map.png 在工作空间顶层 resource/，可用 map_path 参数覆盖
+        default_map = '/home/robot/Mid-70_perception_module/resource/map.png'
+        self.declare_parameter('map_path', default_map)
+        self.declare_parameter('real_width', 28.0)
+        self.declare_parameter('real_height', 15.0)
+        self.real_width = self.get_parameter('real_width').value
+        self.real_height = self.get_parameter('real_height').value
+
+        map_path = self.get_parameter('map_path').value
+        self.ori_img = cv2.imread(map_path)
+        if self.ori_img is None:
+            raise RuntimeError('map image not found: {}'.format(map_path))
         self.img_pub = self.create_publisher(Image, 'target_image', 10)
         self.target_sub = self.create_subscription(TargetArray, 'pc_detector/targets', self.target_callback, 10)
         self.get_logger().info('Initialized target_visualizer.')
@@ -36,8 +42,8 @@ class TargetVisualizer(Node):
     def target_callback(self, msg):
         now_img = self.ori_img.copy()
         for target in msg.targets:
-            im_x = int(target.position[0] / configs['real_width'] * self.ori_img.shape[1])
-            im_y = int((1 - target.position[1] / configs['real_height']) * self.ori_img.shape[0])
+            im_x = int(target.position[0] / self.real_width * self.ori_img.shape[1])
+            im_y = int((1 - target.position[1] / self.real_height) * self.ori_img.shape[0])
             cv2.circle(now_img, (im_x, im_y), 5, (0, 0, 255), -1)
             cv2.putText(now_img, str(target.id), (im_x, im_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             # 等马氏距离椭圆
@@ -45,11 +51,11 @@ class TargetVisualizer(Node):
             w, v = np.linalg.eig(cov)
             angle = np.arccos(np.dot(v[:, 0], np.array([1, 0])))
             angle = -angle if cov[0, 1] > 0 else angle
-            mah_dis = 6. / configs['real_width'] * self.ori_img.shape[1]
+            mah_dis = 6. / self.real_width * self.ori_img.shape[1]
             width = mah_dis * np.sqrt(w[0])
             height = mah_dis * np.sqrt(w[1])
             cv2.ellipse(now_img, (im_x, im_y), (int(width), int(height)), angle / np.pi * 180, 0, 360, (0, 255, 0), 2)
-            # mah_dis = 20 / configs['real_width'] * self.ori_img.shape[1]
+            # mah_dis = 20 / self.real_width * self.ori_img.shape[1]
             # width = mah_dis * np.sqrt(w[0])
             # height = mah_dis * np.sqrt(w[1])
             # cv2.ellipse(now_img, (im_x, im_y), (int(width), int(height)), angle / np.pi * 180, 0, 360, (255, 0, 255), 2)

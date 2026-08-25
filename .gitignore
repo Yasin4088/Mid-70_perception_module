@@ -1,0 +1,5 @@
+# 编译文件产出
+**/__pycache__
+**/build
+**/install
+**/log

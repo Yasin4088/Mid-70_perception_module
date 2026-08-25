@@ -1,6 +1,5 @@
 #include "pc_aligner/aligner_node.hpp"
 
-#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <filesystem>
 #include <open3d/Open3D.h>
 #include <tf2_eigen/tf2_eigen.hpp>
@@ -22,7 +21,7 @@ std::vector<size_t> select_points(std::shared_ptr<const open3d::geometry::PointC
 
 std::shared_ptr<const open3d::geometry::PointCloud> AlignerNode::read_preselected_pc()
 {
-    std::filesystem::path pc_path = std::filesystem::path(ament_index_cpp::get_package_share_directory("radar_bringup")) / "resource" / get_parameter("preselect_pcd").as_string();
+    std::filesystem::path pc_path = std::filesystem::path(get_parameter("resource_path").as_string()) / get_parameter("preselect_pcd").as_string();
     auto pc2align = open3d::io::CreatePointCloudFromFile(pc_path.string());
     return pc2align;
 }

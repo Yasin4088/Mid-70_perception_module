@@ -227,8 +227,11 @@ void DetectorNode::solve()
     open3d::geometry::PointCloud pc;
     for (const auto& unpacked : pc_buffer)
         pc.points_.insert(pc.points_.end(), unpacked.points.begin(), unpacked.points.end());
+
+    // 体素降采样：大平面（墙/地面）点数骤减，防止 DBSCAN 邻域表内存爆炸
+    auto pc_down = pc.VoxelDownSample(get_parameter("voxel_grid.voxel_size").as_double());
     std::vector<int> clustered_labels, tracking_ids;
-    target_map.update(pc, clustered_labels, tracking_ids);
-    pub_solved_pc(pc.points_, clustered_labels, tracking_ids);
+    target_map.update(*pc_down, clustered_labels, tracking_ids);
+    pub_solved_pc(pc_down->points_, clustered_labels, tracking_ids);
     pub_targets(pc_buffer.back().timestamp);
 }

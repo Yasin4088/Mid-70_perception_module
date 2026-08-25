@@ -1,7 +1,7 @@
 #include "RosNode.h"
 
 #include <filesystem>
-#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <cstdlib>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <std_srvs/srv/empty.hpp>
 #include <tf2/LinearMath/Quaternion.h>
@@ -38,8 +38,11 @@ void DetectorNode::prepare_lidars()
 
         // 获取世界变换
         while (true) {
-            if (!rclcpp::ok())
-                throw std::runtime_error("Interrupted while waiting for transform: " + tf_name);
+            if (!rclcpp::ok()) {
+                // Ctrl-C 打断启动等待：优雅退出，而不是让异常逃逸导致 SIGABRT
+                RCLCPP_INFO(get_logger(), "Interrupted while waiting for transform: %s, exiting", tf_name.c_str());
+                std::exit(0);
+            }
             try {
                 l_ctx->trans = tf2::transformToEigen(
                     tf_buffer->lookupTransform("world", tf_name, tf2::TimePointZero, tf2::durationFromSec(1.0)));
@@ -62,6 +65,16 @@ void DetectorNode::prepare_lidars()
 
 void DetectorNode::prepare_meshes()
 {
+    declare_parameter("mesh.enable", false);
+    // radar_bringup 包已拆除：场地模型统一放工作空间顶层 resource/，路径走参数
+    declare_parameter("mesh.resource_path", "/home/robot/Mid-70_perception_module/resource");
+    if (!get_parameter("mesh.enable").as_bool()) {
+        // 无场地模型环境：跳过背景滤波网格加载，纯聚类跟踪
+        RCLCPP_INFO(get_logger(), "mesh disabled, skip mesh loading");
+        mesh_filter_mode = false;
+        return;
+    }
+
     declare_parameter("mesh.mesh_ori", "bg2align.stl");
     declare_parameter("mesh.mesh_filter", "bg2filter.stl");
     declare_parameter("mesh.pc_filter", "bg2filter.pcd");
@@ -80,7 +93,7 @@ void DetectorNode::prepare_meshes()
     auto init_translate_v = get_parameter("mesh.init_translate").as_double_array();
     Eigen::Vector3d init_translate(init_translate_v[0], init_translate_v[1], init_translate_v[2]);
 
-    std::filesystem::path resource_path = std::filesystem::path(ament_index_cpp::get_package_share_directory("radar_bringup")) / "resource";
+    auto resource_path = std::filesystem::path(get_parameter("mesh.resource_path").as_string());
     RCLCPP_INFO(get_logger(), "meshes path: %s", resource_path.c_str());
     mesh_ori = open3d::io::CreateMeshFromFile(resource_path / get_parameter("mesh.mesh_ori").as_string());
     if (!mesh_ori) {
@@ -138,11 +151,13 @@ void DetectorNode::prepare_voxel_grid(LidarContext& l_ctx)
         { size_max[0], size_max[1], size_max[2] },
         voxel_size });
 
-    if (mesh_filter_mode)
-        voxel_grid.occupy_by_mesh_filter(mesh_filter, occupy_expand);
-    else
-        voxel_grid.occupy_by_pc(pc_filter, dilate_size);
-    voxel_grid.occupy_by_mesh(mesh_ori, l_ctx.trans * Eigen::Vector3d::Zero(), dilate_size);
+    if (mesh_ori) {
+        if (mesh_filter_mode && mesh_filter)
+            voxel_grid.occupy_by_mesh_filter(mesh_filter, occupy_expand);
+        else if (!mesh_filter_mode && pc_filter)
+            voxel_grid.occupy_by_pc(pc_filter, dilate_size);
+        voxel_grid.occupy_by_mesh(mesh_ori, l_ctx.trans * Eigen::Vector3d::Zero(), dilate_size);
+    }
 
     // open3d::visualization::DrawGeometries({ mesh_ori, std::make_shared<open3d::geometry::VoxelGrid>(voxel_grid.o3d_grid) }, "Voxel Grid", 1920, 1080);
 }

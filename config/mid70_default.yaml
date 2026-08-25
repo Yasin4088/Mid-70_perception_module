@@ -1,0 +1,123 @@
+# Mid-70 感知模块默认配置（通用环境）
+# 键名 = 节点完全限定名，与 launch 中命名空间严格对应
+
+/mid70/lidar_v1:
+  ros__parameters:
+    # 雷达网络参数，按现场网络修改
+    local_ip: "192.168.10.50"
+    dest_ip: "192.168.10.30"
+    udp_port: 50010
+    # 收包批量点数
+    batch_dot_num: 9600
+    # 收包超时 单位: ms
+    timeout_ms: 1000
+
+/pc_detector:
+  ros__parameters:
+    # 缓冲区帧数
+    node.buffer_frame_size: 10
+    # 雷达名列表（对应 <name>/pc_raw 话题与 <name>_frame 帧）
+    node.lidars: ['mid70']
+
+    # 背景滤波（场地网格）开关。
+    # False = 通用环境：跳过 mesh 加载，纯聚类+跟踪；
+    # True  = 比赛场地：加载工作空间顶层 resource/ 下的场地模型做体素占用滤波。
+    mesh.enable: False
+    # 场地模型目录（radar_bringup 包已拆除，模型统一放工作空间顶层 resource/）
+    mesh.resource_path: "/home/robot/Mid-70_perception_module/resource"
+    # 以下参数仅在 mesh.enable: True 时生效
+    # mesh.mesh_ori: "24_bg2align_fix1.stl"
+    # mesh.mesh_filter: "24_bg2filter_fix1.stl"
+    # mesh.filter_mode: "mesh"   # option: mesh, pointcloud
+    # mesh.init_translate: [0.0, 0.0, 0.0]
+
+    # 体素网格滤波器体素大小 单位: m
+    voxel_grid.voxel_size: 0.1
+    # 膨胀的核半径大小 单位: 体素
+    voxel_grid.dilate_size: 1
+    # 体素网格盒大小（检测范围）单位: m，通用环境 30x30x5
+    voxel_grid.size.min: [-15.0, -15.0, 0.0]
+    voxel_grid.size.max: [15.0, 15.0, 5.0]
+    # 场地模型占用扩展大小 单位: m
+    voxel_grid.occupy_expand: 0.3
+
+    # 跟踪延迟长度 单位: 帧
+    target_map.last_frames: 100
+    # 跟踪 (马氏) 距离阈值
+    target_map.dist_thres: 20.0
+    # 跟踪合并跟丢阈值 单位: 帧
+    target_map.combine_limit: 15
+    # 跟踪合并 (马氏) 距离阈值
+    target_map.combine_dist: 8.0
+    # 强制合并距离阈值 单位: m
+    target_map.force_combine_dist: 0.1
+    # 错误合并判定跟丢阈值 单位: 帧
+    target_map.separate_limit: 8
+    # 跟踪框相接阈值 单位: m
+    target_map.cc_thres: 0.05
+    # 初始跟踪框预设丢失帧计数 单位: 帧
+    target_map.init_lost: 12
+    # 投影后 Z 轴高度 单位: m
+    target_map.project_z: 0.1
+
+    # Z 方向压缩比例
+    clustering.z_zip: 0.5
+    # (普通参数) DBSCAN 聚类算法的聚类半径 单位: m
+    clustering.normal.eps: 0.2
+    # (普通参数) DBSCAN 聚类算法的最少点阈值
+    clustering.normal.min_points: 8
+    # (宽松参数) DBSCAN 聚类算法的聚类半径 单位: m
+    clustering.loose.eps: 0.25
+    # (宽松参数) DBSCAN 聚类算法的最少点阈值
+    clustering.loose.min_points: 5
+    # (宽松参数) 进行宽松聚类的扩展边界 单位: m
+    clustering.loose.box_expand: 0.1
+    # (严格参数) DBSCAN 聚类算法的聚类半径 单位: m
+    clustering.strict.eps: 0.15
+    # (严格参数) DBSCAN 聚类算法的最少点阈值
+    clustering.strict.min_points: 12
+
+    # 预测协方差矩阵
+    kalman_filter.q.position: 0.00005
+    kalman_filter.q.velocity: 0.00002
+    kalman_filter.q.pos_vel: 0.00002
+    # 观测协方差矩阵
+    kalman_filter.r.position: 0.002
+    kalman_filter.r.velocity: 0.015
+    # 预测积累协方差更新比率
+    kalman_filter.cov_factor: 1.0
+    # 速度衰减比率
+    kalman_filter.decay_rate: 0.005
+    # 速度限制 单位: m/s
+    kalman_filter.max_velocity: 10.0
+
+/target_visualizer:
+  ros__parameters:
+    # 地图底图路径（radar_bringup 包已拆除，map.png 在工作空间顶层 resource/）
+    map_path: "/home/robot/Mid-70_perception_module/resource/map.png"
+
+/pc_aligner:
+  ros__parameters:
+    # 场地模型目录（radar_bringup 包已拆除，模型统一放工作空间顶层 resource/）
+    resource_path: "/home/robot/Mid-70_perception_module/resource"
+    # 采样雷达名（订阅 <sample_lidar>/pc_raw）
+    sample_lidar: 'mid70'
+    # 采样点数（攒满后自动配准）
+    init_sample: 100000
+    mesh_sample: 10000
+    # 配准裁剪盒 单位: m（对齐 24 场地模型，按需修改）
+    crop_box.min: [0.150, 0.150, 0.0]
+    crop_box.max: [27.850, 14.850, 1.500]
+    max_corr_dist: 0.5
+    max_iteration: 20
+    # 手动对齐相关（建议关闭，开启会进入交互选点）
+    use_preselect: False
+    startup_manual_align: False
+    vis_auto: True
+    # 对齐模型: "mesh" 或 "pointcloud"
+    align_model: "mesh"
+    mesh: "24_bg2align_fix1.stl"
+    # middle 系初始位姿 [x, y, z, qw, qx, qy, qz]
+    init_trans: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+    # TF 重发间隔 单位: ms
+    tf_pub_interval_ms: 1000
