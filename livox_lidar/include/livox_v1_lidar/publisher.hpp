@@ -5,7 +5,7 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/point_field.hpp>
-#include <radar_interface/livox_struct.hpp>
+#include <livox_struct.hpp>
 
 #include <array>
 #include <atomic>

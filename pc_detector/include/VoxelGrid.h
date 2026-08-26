@@ -29,7 +29,7 @@ public:
     open3d::geometry::VoxelGrid o3d_grid;
 
     void initialize(const VoxelGridParams& params);
-    void occupy_by_mesh(std::shared_ptr<const open3d::geometry::TriangleMesh> mesh, Eigen::Vector3d lidar_pos, size_t dilate_size);
+    void occupy_by_mesh(std::shared_ptr<const Z_Map> z_map, size_t dilate_size);
     void occupy_by_mesh_filter(std::shared_ptr<const open3d::geometry::TriangleMesh> mesh_f, double occupy_expand);
     void occupy_by_pc(std::shared_ptr<const open3d::geometry::PointCloud> pc, size_t dilate_size);
     void calculate_zmap(std::shared_ptr<const open3d::geometry::TriangleMesh> mesh);

@@ -72,22 +72,15 @@ void LidarPublisher::heartbeat_spin()
     }
 }
 
-LidarPublisher::LidarPublisher(const rclcpp::NodeOptions& options) : rclcpp::Node("lidar_v1", options)
+LidarPublisher::LidarPublisher(const rclcpp::NodeOptions& options) : rclcpp::Node("livox_lidar", options)
 {
     declare_parameter("batch_dot_num", 9600);
     declare_parameter("local_ip", "192.168.1.50");
     declare_parameter("dest_ip", "192.168.1.166");
     declare_parameter("udp_port", 50010);
 
-    // frame_id 由名命名空间决定
-    auto ns = std::string_view(get_namespace());
-    auto ns_pos = ns.rfind('/');
-    if (ns_pos != std::string_view::npos && ns_pos + 1 < ns.size()) {
-        frame_id = ns.substr(ns.rfind('/') + 1);
-        frame_id.append("_frame");
-    } else {
-        frame_id = "default_lidar_frame";
-    }
+    // frame_id 由节点名决定（节点在根命名空间，不再按 namespace 推导）
+    frame_id = std::string(get_name()) + "_frame";
     RCLCPP_INFO(get_logger(), "frame_id: %s", frame_id.c_str());
     batch_dot_num = get_parameter("batch_dot_num").as_int();
     local_ip = boost::asio::ip::make_address_v4(get_parameter("local_ip").as_string());

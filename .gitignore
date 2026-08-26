@@ -3,3 +3,6 @@
 **/build
 **/install
 **/log
+
+# 旧赛季文件
+unused/

@@ -22,7 +22,7 @@ if(cpp_typesupport_target)
 
   target_include_directories(${PROJECT_NAME}_library INTERFACE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-  "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
+  "$<INSTALL_INTERFACE:include>")
   target_link_libraries(${PROJECT_NAME}_library INTERFACE
   "${cpp_typesupport_target}")
 
@@ -32,14 +32,14 @@ if(cpp_typesupport_target)
     "sensor_msgs")
 
   install(DIRECTORY include/
-    DESTINATION include/${PROJECT_NAME}
+    DESTINATION include
   )
   install(
     TARGETS ${PROJECT_NAME}_library EXPORT export_${PROJECT_NAME}
   )
 
   # Export old-style CMake variables
-  ament_export_include_directories("include/${PROJECT_NAME}")
+  ament_export_include_directories("include")
 
   # Export modern CMake targets
   ament_export_targets(export_${PROJECT_NAME})

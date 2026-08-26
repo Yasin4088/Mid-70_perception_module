@@ -33,7 +33,8 @@ void DetectorNode::prepare_lidars()
     for (const auto& lidar_name : arr) {
         RCLCPP_INFO(get_logger(), "Preparing lidar: %s", lidar_name.c_str());
         std::string tf_name = lidar_name + "_frame";
-        std::string topic_name = lidar_name + "/pc_raw";
+        // 雷达在根命名空间发布 /pc_raw，话题不再带 {lidar_name} 前缀（单雷达布局）
+        std::string topic_name = "pc_raw";
         auto l_ctx = std::make_shared<LidarContext>();
 
         // 获取世界变换
@@ -151,12 +152,21 @@ void DetectorNode::prepare_voxel_grid(LidarContext& l_ctx)
         { size_max[0], size_max[1], size_max[2] },
         voxel_size });
 
+    // 场地柱高度图（Z_Map）需在体素占据之前建好（occupy_by_mesh 用柱高度判断遮挡）。
+    // mesh_ori 为空（mesh.enable=False 或加载失败）时高度图全 0，与旧行为一致。
+    if (!TargetMap::Target::z_map) {
+        TargetMap::Target::z_map = std::make_shared<Z_Map>(
+            Eigen::Vector3d { size_min[0], size_min[1], size_min[2] },
+            Eigen::Vector3d { size_max[0], size_max[1], size_max[2] },
+            voxel_size, mesh_ori);
+    }
+
     if (mesh_ori) {
         if (mesh_filter_mode && mesh_filter)
             voxel_grid.occupy_by_mesh_filter(mesh_filter, occupy_expand);
         else if (!mesh_filter_mode && pc_filter)
             voxel_grid.occupy_by_pc(pc_filter, dilate_size);
-        voxel_grid.occupy_by_mesh(mesh_ori, l_ctx.trans * Eigen::Vector3d::Zero(), dilate_size);
+        voxel_grid.occupy_by_mesh(TargetMap::Target::z_map, dilate_size);
     }
 
     // open3d::visualization::DrawGeometries({ mesh_ori, std::make_shared<open3d::geometry::VoxelGrid>(voxel_grid.o3d_grid) }, "Voxel Grid", 1920, 1080);
@@ -193,13 +203,16 @@ void DetectorNode::prepare_detector()
         { "strict.eps", 0.15 },
     });
 
-    auto min = get_parameter("voxel_grid.size.min").as_double_array();
-    auto max = get_parameter("voxel_grid.size.max").as_double_array();
-    TargetMap::Target::z_map = std::make_shared<Z_Map>(
-        Eigen::Vector3d { min[0], min[1], min[2] },
-        Eigen::Vector3d { max[0], max[1], max[2] },
-        get_parameter("voxel_grid.voxel_size").as_double(),
-        mesh_ori);
+    // Z_Map 已在 prepare_voxel_grid 创建（须在体素占据之前）；此处兜底（如无雷达时）
+    if (!TargetMap::Target::z_map) {
+        auto min = get_parameter("voxel_grid.size.min").as_double_array();
+        auto max = get_parameter("voxel_grid.size.max").as_double_array();
+        TargetMap::Target::z_map = std::make_shared<Z_Map>(
+            Eigen::Vector3d { min[0], min[1], min[2] },
+            Eigen::Vector3d { max[0], max[1], max[2] },
+            get_parameter("voxel_grid.voxel_size").as_double(),
+            mesh_ori);
+    }
 }
 
 void DetectorNode::prepare_kalman_filter()

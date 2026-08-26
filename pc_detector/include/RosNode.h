@@ -1,7 +1,7 @@
 #pragma once
 
 #include <queue>
-#include <radar_interface/livox_struct.hpp>
+#include <livox_struct.hpp>
 #include <radar_interface/msg/target_array.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>

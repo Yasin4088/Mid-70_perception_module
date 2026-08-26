@@ -1,4 +1,3 @@
-#include <open3d/t/geometry/RaycastingScene.h>
 // #include <spdlog/spdlog.h>
 
 #include "VoxelGrid.h"
@@ -28,63 +27,46 @@ void VoxelGrid::initialize(const VoxelGridParams &params) {
     o3d_grid.origin_ = bbox.min_bound - Eigen::Vector3d::Ones() * voxel_size * 0.5;
 }
 
-void VoxelGrid::occupy_by_mesh(std::shared_ptr<const open3d::geometry::TriangleMesh> mesh,
-    Eigen::Vector3d lidar_pos, size_t dilate_size)
+void VoxelGrid::occupy_by_mesh(std::shared_ptr<const Z_Map> z_map, size_t dilate_size)
 {
-    /// @brief 利用模型占据体素网格
+    /// @brief 利用场地高度图占据体素网格：体素中心低于所在柱的场地高度即视为被场地遮挡
+    // 原实现用 t::geometry::RaycastingScene 做"雷达→体素中心"射线遮挡判定，
+    // 但 apt libopen3d-dev 0.14.1 缺该符号（0.16 才有）。场地实体都在表面以下，
+    // 用 Z_Map（表面采样+KDTree 柱高度）等价近似：低于柱高度 → 占据并扩张。
     // spdlog::info("Occupying voxel grid by mesh");
-
-    open3d::t::geometry::RaycastingScene scene_r;
-    scene_r.AddTriangles(open3d::t::geometry::TriangleMesh::FromLegacy(*mesh));
-    // double thres = Config["VoxelGrid"]["meshExpand"].as<double>();
-
-    Eigen::MatrixXf Q(grid_size[0] * grid_size[1] * grid_size[2], 6);   // 查询光线
     for (int i = 0; i < grid_size[0]; ++i) {
     for (int j = 0; j < grid_size[1]; ++j) {
     for (int k = 0; k < grid_size[2]; ++k) {
-        Q.row(i * grid_size[1] * grid_size[2] + j * grid_size[2] + k)(Eigen::seq(0, 2)) = lidar_pos.cast<float>();
-        Q.row(i * grid_size[1] * grid_size[2] + j * grid_size[2] + k)(Eigen::seq(3, 5)) = (get_grid_center({i, j, k}) - lidar_pos).cast<float>();
-    }}}
-
-    open3d::core::Tensor Q_tensor = open3d::core::eigen_converter::EigenMatrixToTensor(Q);
-
-    // 计算每条由 雷达位置 到 网格中心 的线段是否与 mesh 相交, 相交则认为该网格被占据
-    std::unordered_map<std::string, open3d::core::Tensor> rslt_r = scene_r.CastRays(Q_tensor);
-    open3d::core::Tensor rslt_hit = rslt_r["t_hit"];
-    for (int i = 0; i < grid_size[0]; ++i) {
-    for (int j = 0; j < grid_size[1]; ++j) {
-    for (int k = 0; k < grid_size[2]; ++k) {
-        // spdlog::info("({}, {}, {}): {}", i, j, k, rslt_hit[i * grid_size[1] * grid_size[2] + j * grid_size[2] + k].Item<float>());
-        // if (rslt_hit[i * grid_size[1] * grid_size[2] + j * grid_size[2] + k].Item<float>()
-        //     < (get_grid_center({i, j, k}) - lidar_pos).norm()) {
-        if (rslt_hit[i * grid_size[1] * grid_size[2] + j * grid_size[2] + k].Item<float>() < 1) {
-            // grid[i][j][k] = true;
+        Eigen::Vector3d center = get_grid_center({ i, j, k });
+        if (center.z() < z_map->project_ground(center.head<2>()).z())
             dilate_occupy(Eigen::Vector3i { i, j, k }, dilate_size, { 1, 0, 0 });
-        }
     }}}
     // spdlog::info("Occupying voxel grid by mesh done");
 }
 
 void VoxelGrid::occupy_by_mesh_filter(std::shared_ptr<const open3d::geometry::TriangleMesh> mesh_f, double occupy_expand)
 {
-    open3d::t::geometry::RaycastingScene scene;
-    scene.AddTriangles(open3d::t::geometry::TriangleMesh::FromLegacy(*mesh_f));
+    // 原实现用 RaycastingScene::ComputeSignedDistance（0.14 缺符号），
+    // 改为 legacy PointCloud::ComputePointCloudDistance（KDTree 最近表面采样点距离），
+    // 体素中心到场地表面距离低于 occupy_expand 即认为贴在场地上而被占据。
+    const int sample_point_num = 50000;
+    // 0.14 的 SamplePointsUniformly 非 const，mesh_f 是 const 指针，这里只读采样不修改
+    auto samples = std::const_pointer_cast<open3d::geometry::TriangleMesh>(mesh_f)->SamplePointsUniformly(sample_point_num);
 
-    // 计算每个点到 mesh 的距离, 低于阈值的点被认为是在 mesh 内部而被占据
-    Eigen::MatrixXf P(grid_size[0] * grid_size[1] * grid_size[2], 3); // 查询点集
+    open3d::geometry::PointCloud centers;
+    centers.points_.reserve(grid_size[0] * grid_size[1] * grid_size[2]);
     for (int i = 0; i < grid_size[0]; ++i) {
     for (int j = 0; j < grid_size[1]; ++j) {
     for (int k = 0; k < grid_size[2]; ++k) {
-        P.row(i * grid_size[1] * grid_size[2] + j * grid_size[2] + k)
-            = get_grid_center({ i, j, k }).cast<float>();
+        centers.points_.push_back(get_grid_center({ i, j, k }));
     }}}
 
-    open3d::core::Tensor P_tensor = open3d::core::eigen_converter::EigenMatrixToTensor(P);
-    open3d::core::Tensor rslt = scene.ComputeSignedDistance(P_tensor);
+    auto dists = centers.ComputePointCloudDistance(*samples);
+    size_t idx = 0;
     for (int i = 0; i < grid_size[0]; ++i) {
     for (int j = 0; j < grid_size[1]; ++j) {
     for (int k = 0; k < grid_size[2]; ++k) {
-        if (rslt[i * grid_size[1] * grid_size[2] + j * grid_size[2] + k].Item<float>() < occupy_expand) {
+        if (dists[idx++] < occupy_expand) {
             occupy(Eigen::Vector3i { i, j, k }, { 0, 0, 1 });
         }
     }}}

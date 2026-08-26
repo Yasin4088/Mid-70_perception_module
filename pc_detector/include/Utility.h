@@ -2,7 +2,6 @@
 
 #include <Eigen/Core>
 #include <open3d/Open3D.h>
-#include <open3d/t/geometry/RaycastingScene.h>
 
 namespace pc_detector {
 
@@ -39,25 +38,23 @@ struct Z_Map {
             // （与 project_ground 越界分支返回 z=0 的既有约定一致）
             return;
         }
-        double z_max = bbox.max_bound_(2);
-        open3d::t::geometry::RaycastingScene scene_r;
-        scene_r.AddTriangles(open3d::t::geometry::TriangleMesh::FromLegacy(*mesh));
-        z_map = Eigen::MatrixXf::Zero(grid_size[0], grid_size[1]);
-        Eigen::MatrixXf Q(grid_size[0] * grid_size[1], 6); // 查询光线
+        // apt libopen3d-dev 0.14.1 的头文件带 RaycastingScene.h 但库没有实现
+        // （该 API 是 0.16 才加入的），运行时符号缺失会崩。改用 legacy API：
+        // 表面均匀采样 + KDTree 最近邻，取柱中心 (x,y) 最近表面点的 z 作为该柱场地高度。
+        const int sample_point_num = 100000;
+        // 0.14 的 SamplePointsUniformly 非 const，mesh 是 const 指针，这里只读采样不修改
+        auto samples = std::const_pointer_cast<open3d::geometry::TriangleMesh>(mesh)->SamplePointsUniformly(sample_point_num);
+        open3d::geometry::KDTreeFlann kdtree(*samples);
         for (int i = 0; i < grid_size[0]; ++i) {
             for (int j = 0; j < grid_size[1]; ++j) {
-                Q.row(i * grid_size[1] + j)(Eigen::seq(0, 1)) = get_grid_center({ i, j, 0 })(Eigen::seq(0, 1)).cast<float>();
-                Q.row(i * grid_size[1] + j)(2) = z_max;
-                Q.row(i * grid_size[1] + j)(Eigen::seq(3, 5)) = Eigen::Vector3f { 0, 0, -1 };
+                Eigen::Vector3d query = get_grid_center({ i, j, 0 });
+                query(2) = bbox.max_bound_(2);
+                std::vector<int> idx;
+                std::vector<double> dist;
+                if (kdtree.SearchKNN(query, 1, idx, dist) > 0)
+                    z_map(i, j) = static_cast<float>(samples->points_[idx[0]].z());
             }
         }
-        open3d::core::Tensor Q_tensor = open3d::core::eigen_converter::EigenMatrixToTensor(Q);
-        std::unordered_map<std::string, open3d::core::Tensor> rslt_r = scene_r.CastRays(Q_tensor);
-        open3d::core::Tensor rslt_hit = rslt_r["t_hit"];
-        for (int i = 0; i < grid_size[0]; ++i)
-            for (int j = 0; j < grid_size[1]; ++j) {
-                z_map(i, j) = z_max - rslt_hit[i * grid_size[1] + j].Item<float>();
-            }
     }
     Eigen::Vector3d project_ground(const Eigen::Vector2d& pt) const
     {

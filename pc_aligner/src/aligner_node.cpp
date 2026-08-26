@@ -1,10 +1,10 @@
-#include "pc_aligner/aligner_node.hpp"
+#include "aligner_node.hpp"
 
 #include <filesystem>
 #include <memory>
 #include <open3d/geometry/PointCloud.h>
 #include <open3d/visualization/utility/ColorMap.h>
-#include <radar_interface/livox_struct.hpp>
+#include <livox_struct.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <vector>
 
@@ -72,7 +72,7 @@ void AlignerNode::start_sample(std::function<void(std::shared_ptr<open3d::geomet
             std::make_shared<open3d::geometry::PointCloud>(),
             static_cast<size_t>(get_parameter("init_sample").as_int()),
             create_subscription<sensor_msgs::msg::PointCloud2>(
-                get_parameter("sample_lidar").as_string() + "/pc_raw", rclcpp::SystemDefaultsQoS(),
+                "pc_raw", rclcpp::SystemDefaultsQoS(),
                 std::bind(&AlignerNode::sample_sub_callback, this, std::placeholders::_1)),
             callback });
     pc_sample_context->recv_pc->points_.reserve(pc_sample_context->sample_size);

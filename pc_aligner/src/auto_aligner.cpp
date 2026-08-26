@@ -1,4 +1,4 @@
-#include "pc_aligner/aligner_node.hpp"
+#include "aligner_node.hpp"
 #include <tf2_eigen/tf2_eigen.hpp>
 
 void AlignerNode::auto_align(std::shared_ptr<open3d::geometry::PointCloud> sample_pc, Eigen::Isometry3d middle_trans, bool keep_last)

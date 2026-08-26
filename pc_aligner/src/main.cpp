@@ -1,6 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 
-#include "pc_aligner/aligner_node.hpp"
+#include "aligner_node.hpp"
 
 int main(int argc, char ** argv)
 {

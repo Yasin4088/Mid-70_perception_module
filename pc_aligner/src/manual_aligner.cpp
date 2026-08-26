@@ -1,4 +1,4 @@
-#include "pc_aligner/aligner_node.hpp"
+#include "aligner_node.hpp"
 
 #include <filesystem>
 #include <open3d/Open3D.h>

@@ -26,26 +26,25 @@ def generate_launch_description():
     tf_qz = LaunchConfiguration('tf_qz', default='0.0')
     tf_qw = LaunchConfiguration('tf_qw', default='1.0')
 
-    # Livox Mid-70 驱动（namespace mid70 → 话题 /mid70/pc_raw，帧 mid70_frame）
+    # Livox Mid-70 驱动（根命名空间，节点名 livox_lidar → 话题 /pc_raw，帧 livox_lidar_frame）
     livox_node = Node(
         package='livox_lidar',
         executable='livox_lidar_node',
-        name='lidar_v1',
-        namespace='mid70',
+        name='livox_lidar',
         parameters=[config_path],
         condition=IfCondition(enable_lidar),
     )
 
-    # world → mid70_frame 静态 TF（雷达安装位姿）。
+    # world → livox_lidar_frame 静态 TF（雷达安装位姿）。
     # 注意：pc_detector 启动时阻塞等待该 TF，没有它节点会一直等待；
     # 启动 pc_aligner 时由对齐结果接管 world TF，不再发静态 TF。
     static_tf_node = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        name='static_tf_world_mid70',
+        name='static_tf_world_livox_lidar',
         arguments=['--x', tf_x, '--y', tf_y, '--z', tf_z,
                    '--qx', tf_qx, '--qy', tf_qy, '--qz', tf_qz, '--qw', tf_qw,
-                   '--frame-id', 'world', '--child-frame-id', 'mid70_frame'],
+                   '--frame-id', 'world', '--child-frame-id', 'livox_lidar_frame'],
         condition=UnlessCondition(enable_align),
     )
 
@@ -92,13 +91,13 @@ def generate_launch_description():
         DeclareLaunchArgument('align', default_value='false', description='启动 pc_aligner（对齐后由它发布 world TF）'),
         DeclareLaunchArgument('visualizer', default_value='false', description='启动 target_visualizer'),
         DeclareLaunchArgument('rviz', default_value='true', description='启动 rviz2 可视化（加载 Mid-70_perception_module.rviz）'),
-        DeclareLaunchArgument('tf_x', default_value='0.0', description='静态 TF world→mid70_frame 平移 x (m)'),
-        DeclareLaunchArgument('tf_y', default_value='0.0', description='静态 TF world→mid70_frame 平移 y (m)'),
-        DeclareLaunchArgument('tf_z', default_value='0.0', description='静态 TF world→mid70_frame 平移 z (m)'),
-        DeclareLaunchArgument('tf_qx', default_value='0.0', description='静态 TF world→mid70_frame 旋转 qx'),
-        DeclareLaunchArgument('tf_qy', default_value='0.0', description='静态 TF world→mid70_frame 旋转 qy'),
-        DeclareLaunchArgument('tf_qz', default_value='0.0', description='静态 TF world→mid70_frame 旋转 qz'),
-        DeclareLaunchArgument('tf_qw', default_value='1.0', description='静态 TF world→mid70_frame 旋转 qw'),
+        DeclareLaunchArgument('tf_x', default_value='0.0', description='静态 TF world→livox_lidar_frame 平移 x (m)'),
+        DeclareLaunchArgument('tf_y', default_value='0.0', description='静态 TF world→livox_lidar_frame 平移 y (m)'),
+        DeclareLaunchArgument('tf_z', default_value='0.0', description='静态 TF world→livox_lidar_frame 平移 z (m)'),
+        DeclareLaunchArgument('tf_qx', default_value='0.0', description='静态 TF world→livox_lidar_frame 旋转 qx'),
+        DeclareLaunchArgument('tf_qy', default_value='0.0', description='静态 TF world→livox_lidar_frame 旋转 qy'),
+        DeclareLaunchArgument('tf_qz', default_value='0.0', description='静态 TF world→livox_lidar_frame 旋转 qz'),
+        DeclareLaunchArgument('tf_qw', default_value='1.0', description='静态 TF world→livox_lidar_frame 旋转 qw'),
         livox_node,
         static_tf_node,
         detector_node,

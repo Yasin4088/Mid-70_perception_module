@@ -1,7 +1,4 @@
-# Mid-70 感知模块默认配置（通用环境）
-# 键名 = 节点完全限定名，与 launch 中命名空间严格对应
-
-/mid70/lidar_v1:
+/livox_lidar:
   ros__parameters:
     # 雷达网络参数，按现场网络修改
     local_ip: "192.168.10.50"
@@ -16,20 +13,20 @@
   ros__parameters:
     # 缓冲区帧数
     node.buffer_frame_size: 10
-    # 雷达名列表（对应 <name>/pc_raw 话题与 <name>_frame 帧）
-    node.lidars: ['mid70']
+    # 雷达帧名列表（对应 <name>_frame 帧；livox 在根命名空间，点云话题固定为 /pc_raw）
+    node.lidars: ['livox_lidar']
 
     # 背景滤波（场地网格）开关。
     # False = 通用环境：跳过 mesh 加载，纯聚类+跟踪；
-    # True  = 比赛场地：加载工作空间顶层 resource/ 下的场地模型做体素占用滤波。
-    mesh.enable: False
-    # 场地模型目录（radar_bringup 包已拆除，模型统一放工作空间顶层 resource/）
-    mesh.resource_path: "/home/robot/Mid-70_perception_module/resource"
+    # True  = 比赛场地：加载场地模型做体素占用滤波。
+    mesh.enable: True
+    # 场地模型目录
+    mesh.resource_path: "/home/robot/Mid-70_perception_module/unused"
     # 以下参数仅在 mesh.enable: True 时生效
-    # mesh.mesh_ori: "24_bg2align_fix1.stl"
-    # mesh.mesh_filter: "24_bg2filter_fix1.stl"
-    # mesh.filter_mode: "mesh"   # option: mesh, pointcloud
-    # mesh.init_translate: [0.0, 0.0, 0.0]
+    mesh.mesh_ori: "24_bg2align_fix1.stl"
+    mesh.mesh_filter: "24_bg2filter_fix1.stl"
+    mesh.filter_mode: "mesh"   # option: mesh, pointcloud
+    mesh.init_translate: [0.0, 0.0, 0.0]
 
     # 体素网格滤波器体素大小 单位: m
     voxel_grid.voxel_size: 0.1
@@ -93,15 +90,15 @@
 
 /target_visualizer:
   ros__parameters:
-    # 地图底图路径（radar_bringup 包已拆除，map.png 在工作空间顶层 resource/）
-    map_path: "/home/robot/Mid-70_perception_module/resource/map.png"
+    # 地图底图路径
+    map_path: "/home/robot/Mid-70_perception_module/unused/map.png"
 
 /pc_aligner:
   ros__parameters:
-    # 场地模型目录（radar_bringup 包已拆除，模型统一放工作空间顶层 resource/）
-    resource_path: "/home/robot/Mid-70_perception_module/resource"
-    # 采样雷达名（订阅 <sample_lidar>/pc_raw）
-    sample_lidar: 'mid70'
+    # 场地模型目录
+    resource_path: "/home/robot/Mid-70_perception_module/unused"
+    # 采样雷达名（对应 <sample_lidar>_frame 帧；点云话题固定为 /pc_raw）
+    sample_lidar: 'livox_lidar'
     # 采样点数（攒满后自动配准）
     init_sample: 100000
     mesh_sample: 10000
