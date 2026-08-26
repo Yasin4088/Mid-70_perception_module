@@ -24,6 +24,9 @@ struct PcSampleContext
 
 class AlignerNode : public rclcpp::Node
 {
+    // 只接单台 livox 雷达：采样雷达 TF 帧名硬编码（livox 节点 frame_id = <节点名>_frame）
+    static constexpr const char* SAMPLE_LIDAR_FRAME = "livox_lidar_frame";
+
 private:
     bool align_using_mesh;
     tf2_ros::Buffer::SharedPtr tf_buffer;

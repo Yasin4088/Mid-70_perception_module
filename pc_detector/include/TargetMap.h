@@ -38,11 +38,9 @@ public:
         size_t last_frames;
         double dist_thres;
         size_t combine_limit;
-        double combine_dist;
         double force_combine_dist;
         size_t separate_limit;
         double cc_thres;
-        size_t init_lost;
         double z_zip;
         double loose_expand;
         struct {
@@ -59,7 +57,6 @@ private:
     void pre_update();
     void post_update();
     size_t new_target(const BoundingBox& aabb, size_t pt_num, Eigen::Vector3d grav);
-    void combine(size_t new_key, std::vector<size_t> old_keys);
     void combine_force(size_t new_key, std::vector<size_t> old_keys);
     void seperate(const BoundingBox& aabb, const open3d::geometry::PointCloud& pc);
     inline bool is_coincide(const BoundingBox& aabb1, const BoundingBox& aabb2)

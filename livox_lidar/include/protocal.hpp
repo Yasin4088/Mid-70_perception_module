@@ -4,7 +4,7 @@
 #include <boost/asio.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <livox_v1_lidar/fast_crc.hpp>
+#include "fast_crc.hpp"
 
 namespace livox_v1_lidar {
 namespace protocal {

@@ -129,22 +129,6 @@ void TargetMap::post_update()
     }
 }
 
-/// @brief 将多个跟踪目标合并为一个新的跟踪目标
-void TargetMap::combine(size_t new_id, std::vector<size_t> old_ids)
-{
-    for (size_t id : old_ids) {
-        if (id == new_id || target_map.at(id).lost_time < params.combine_limit)
-            continue;
-        // spdlog::info("TargetMap: Combine {} to {}", id, new_id);
-        RCLCPP_DEBUG(params.node->get_logger(), "TargetMap: Combine %lu to %lu.", id, new_id);
-        // target_map[new_id].aabb.max_bound = (target_map[new_id].pt_num * target_map[new_id].aabb.max_bound + target_map.at(id).pt_num * target_map.at(id).aabb.max_bound) / (target_map[new_id].pt_num + target_map.at(id).pt_num);
-        // target_map[new_id].aabb.min_bound = (target_map[new_id].pt_num * target_map[new_id].aabb.min_bound + target_map.at(id).pt_num * target_map.at(id).aabb.min_bound) / (target_map[new_id].pt_num + target_map.at(id).pt_num);
-        // target_map[new_id].grav = (target_map[new_id].pt_num * target_map[new_id].grav + target_map.at(id).pt_num * target_map.at(id).grav) / (target_map[new_id].pt_num + target_map.at(id).pt_num);
-        // target_map[new_id].pt_num += target_map.at(id).pt_num;
-        target_map.erase(id);
-    }
-}
-
 /// @brief 将多个跟踪目标合并为一个新的跟踪目标 (强制合并)
 void TargetMap::combine_force(size_t new_id, std::vector<size_t> old_ids)
 {
@@ -162,7 +146,7 @@ size_t TargetMap::push(const BoundingBox& aabb, size_t pt_num, Eigen::Vector3d g
 {
     int64_t min_id = -1;
     double min_dis = -1;
-    std::vector<size_t> combine_id_list, combine_force_id_list, seperate_id_list;
+    std::vector<size_t> combine_force_id_list, seperate_id_list;
     for (auto& [id, target] : target_map) {
         // double dis = sqr_dis(grav, target_map[i].kf.pos());
         if (is_contain(aabb, target_map.at(id).pos()) && target_map.at(id).lost_time < params.separate_limit)
@@ -172,8 +156,6 @@ size_t TargetMap::push(const BoundingBox& aabb, size_t pt_num, Eigen::Vector3d g
         // 对于匹配目标距离过远, 应该不是同一个目标, 不应该进行合并
         if (mah_dis > params.dist_thres * params.dist_thres && !is_coincide(aabb, target_map.at(id).aabb))
             continue;
-        if (mah_dis <= params.combine_dist * params.combine_dist)
-            combine_id_list.push_back(id);
         if ((target_map.at(id).pos() - grav).squaredNorm() <= params.force_combine_dist * params.force_combine_dist)
             combine_force_id_list.push_back(id);
         if (mah_dis < min_dis || min_id == -1) {
@@ -189,8 +171,6 @@ size_t TargetMap::push(const BoundingBox& aabb, size_t pt_num, Eigen::Vector3d g
         return TM_NEED_SEPERATE;
     }
     if (min_id != -1) {
-        // if (combine_id_list.size() > 1)
-        //     combine(min_id, combine_id_list);
         if (combine_force_id_list.size() > 1)
             combine_force(min_id, combine_force_id_list);
         element_update(min_id, aabb, pt_num, grav);

@@ -105,7 +105,7 @@ void AlignerNode::manual_align(std::shared_ptr<open3d::geometry::PointCloud> pc2
 
     middle_tf = std::make_shared<geometry_msgs::msg::TransformStamped>();
     middle_tf->header.stamp = now();
-    middle_tf->header.frame_id = get_parameter("sample_lidar").as_string() + "_frame";
+    middle_tf->header.frame_id = SAMPLE_LIDAR_FRAME;
     middle_tf->child_frame_id = "middle";
     middle_tf->transform = tf2::eigenToTransform(Eigen::Affine3d(trans).inverse()).transform;
 

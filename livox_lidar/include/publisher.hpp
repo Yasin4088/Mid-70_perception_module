@@ -1,6 +1,6 @@
 #pragma once
 
-#include <livox_v1_lidar/protocal.hpp>
+#include "protocal.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>

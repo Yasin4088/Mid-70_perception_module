@@ -13,10 +13,7 @@
   ros__parameters:
     # 缓冲区帧数
     node.buffer_frame_size: 10
-    # 雷达帧名列表（对应 <name>_frame 帧；livox 在根命名空间，点云话题固定为 /pc_raw）
-    node.lidars: ['livox_lidar']
 
-    # 背景滤波（场地网格）开关。
     # False = 通用环境：跳过 mesh 加载，纯聚类+跟踪；
     # True  = 比赛场地：加载场地模型做体素占用滤波。
     mesh.enable: True
@@ -44,16 +41,12 @@
     target_map.dist_thres: 20.0
     # 跟踪合并跟丢阈值 单位: 帧
     target_map.combine_limit: 15
-    # 跟踪合并 (马氏) 距离阈值
-    target_map.combine_dist: 8.0
     # 强制合并距离阈值 单位: m
     target_map.force_combine_dist: 0.1
     # 错误合并判定跟丢阈值 单位: 帧
     target_map.separate_limit: 8
     # 跟踪框相接阈值 单位: m
     target_map.cc_thres: 0.05
-    # 初始跟踪框预设丢失帧计数 单位: 帧
-    target_map.init_lost: 12
     # 投影后 Z 轴高度 单位: m
     target_map.project_z: 0.1
 
@@ -97,8 +90,6 @@
   ros__parameters:
     # 场地模型目录
     resource_path: "/home/robot/Mid-70_perception_module/unused"
-    # 采样雷达名（对应 <sample_lidar>_frame 帧；点云话题固定为 /pc_raw）
-    sample_lidar: 'livox_lidar'
     # 采样点数（攒满后自动配准）
     init_sample: 100000
     mesh_sample: 10000

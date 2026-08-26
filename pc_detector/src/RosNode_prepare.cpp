@@ -23,14 +23,13 @@ DetectorNode::DetectorNode(const rclcpp::NodeOptions& options)
 
 void DetectorNode::prepare_lidars()
 {
-    declare_parameter("node.lidars", std::vector<std::string> { "lidar" });
+    // 只接单台 livox 雷达：帧名前缀硬编码（livox 节点 frame_id = <节点名>_frame）
+    const std::vector<std::string> lidar_names { "livox_lidar" };
 
     tf_buffer = std::make_shared<tf2_ros::Buffer>(get_clock());
     tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
-    auto arr = get_parameter("node.lidars").as_string_array();
-
-    for (const auto& lidar_name : arr) {
+    for (const auto& lidar_name : lidar_names) {
         RCLCPP_INFO(get_logger(), "Preparing lidar: %s", lidar_name.c_str());
         std::string tf_name = lidar_name + "_frame";
         // 雷达在根命名空间发布 /pc_raw，话题不再带 {lidar_name} 前缀（单雷达布局）
@@ -177,15 +176,12 @@ Z_Map::SharedPtr TargetMap::Target::z_map;
 void DetectorNode::prepare_detector()
 {
     declare_parameters("target_map", std::map<std::string, int> {
-        { "flag_size", 25 },
         { "last_frames", 100 },
         { "combine_limit", 15 },
         { "separate_limit", 8 },
-        { "init_lost", 12 },
     });
     declare_parameters("target_map", std::map<std::string, double> {
         { "dist_thres", 20.0 },
-        { "combine_dist", 8.0 },
         { "force_combine_dist", 0.1 },
         { "cc_thres", 0.05 },
         { "project_z", 0.3 }

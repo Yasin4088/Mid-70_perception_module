@@ -10,7 +10,6 @@
 
 AlignerNode::AlignerNode() : Node("pc_aligner")
 {
-    declare_parameter("sample_lidar", "lidar");
     declare_parameter("init_sample", 100000);
     declare_parameter("startup_manual_align", false);
 
@@ -124,7 +123,7 @@ Eigen::Isometry3d AlignerNode::get_middle_trans()
         try {
             return tf2::transformToEigen(tf_buffer->lookupTransform(
                 "middle",
-                get_parameter("sample_lidar").as_string() + "_frame",
+                SAMPLE_LIDAR_FRAME,
                 tf2::TimePointZero, tf2::durationFromSec(1.0)));
         } catch (const tf2::TransformException& e) {
             RCLCPP_ERROR(get_logger(), "Waiting for Middle Trans. Exception: %s", e.what());

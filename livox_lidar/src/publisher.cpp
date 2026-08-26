@@ -1,4 +1,4 @@
-#include "livox_v1_lidar/publisher.hpp"
+#include "publisher.hpp"
 
 using namespace livox_v1_lidar;
 
@@ -79,7 +79,6 @@ LidarPublisher::LidarPublisher(const rclcpp::NodeOptions& options) : rclcpp::Nod
     declare_parameter("dest_ip", "192.168.1.166");
     declare_parameter("udp_port", 50010);
 
-    // frame_id 由节点名决定（节点在根命名空间，不再按 namespace 推导）
     frame_id = std::string(get_name()) + "_frame";
     RCLCPP_INFO(get_logger(), "frame_id: %s", frame_id.c_str());
     batch_dot_num = get_parameter("batch_dot_num").as_int();
@@ -101,8 +100,6 @@ LidarPublisher::LidarPublisher(const rclcpp::NodeOptions& options) : rclcpp::Nod
     try {
         socket.emplace(ctx, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), local_port));
     } catch (const boost::system::system_error& e) {
-        // 端口被占用时(通常是上一个 launch 的节点进程没退干净),给出明确提示后
-        // 优雅退出,而不是让异常逃逸导致 SIGABRT 崩溃(exit code -6)。
         RCLCPP_FATAL(get_logger(),
             "绑定 UDP 端口 %d 失败: %s。可能已有残留的 livox 节点进程在运行,"
             "请先执行 'ss -ulpn | grep %d' 找到占用进程并 kill 掉,再重新启动。",
@@ -115,8 +112,6 @@ LidarPublisher::LidarPublisher(const rclcpp::NodeOptions& options) : rclcpp::Nod
 
 LidarPublisher::~LidarPublisher()
 {
-    // Ctrl-C 后 rclcpp::ok() 变 false,两个线程最多 1 秒内退出;
-    // 必须先 join 再析构成员,否则析构运行中的 std::thread 会 std::terminate (SIGABRT)
     if (heartbeat_thread.joinable()) {
         heartbeat_thread.join();
     }
