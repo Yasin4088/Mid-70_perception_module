@@ -24,7 +24,6 @@ struct PcSampleContext
 
 class AlignerNode : public rclcpp::Node
 {
-    // 只接单台 livox 雷达：采样雷达 TF 帧名硬编码（livox 节点 frame_id = <节点名>_frame）
     static constexpr const char* SAMPLE_LIDAR_FRAME = "livox_lidar_frame";
 
 private:
@@ -42,9 +41,8 @@ private:
     std::shared_ptr<PcSampleContext> pc_sample_context;
     geometry_msgs::msg::TransformStamped::SharedPtr world_tf, middle_tf;
 
-    // @brief 拿到相机相对雷达的坐标，通过 tf2 对外发布
-    // @details 相机相对雷达的坐标通过 ros parameter 获取，由于两者相对位置由物理条件决定，
-    //          一般情况不会发生改变，故通过静态广播发布
+    /// @brief 拿到相机相对雷达的坐标，通过 tf2 对外发布
+    /// @details 相机相对雷达的坐标通过 ros parameter 获取，通过静态广播发布
     void auto_align_service_callback(const std::shared_ptr<radar_interface::srv::AutoAlign_Request> = {},
     std::shared_ptr<radar_interface::srv::AutoAlign_Response> = {});
     void manual_align_service_callback(const std::shared_ptr<std_srvs::srv::Empty::Request> request = {},

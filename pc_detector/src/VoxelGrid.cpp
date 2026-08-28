@@ -1,5 +1,3 @@
-// #include <spdlog/spdlog.h>
-
 #include "VoxelGrid.h"
 #include "VisualizerHelper.h"
 
@@ -30,9 +28,6 @@ void VoxelGrid::initialize(const VoxelGridParams &params) {
 void VoxelGrid::occupy_by_mesh(std::shared_ptr<const Z_Map> z_map, size_t dilate_size)
 {
     /// @brief 利用场地高度图占据体素网格：体素中心低于所在柱的场地高度即视为被场地遮挡
-    // 原实现用 t::geometry::RaycastingScene 做"雷达→体素中心"射线遮挡判定，
-    // 但 apt libopen3d-dev 0.14.1 缺该符号（0.16 才有）。场地实体都在表面以下，
-    // 用 Z_Map（表面采样+KDTree 柱高度）等价近似：低于柱高度 → 占据并扩张。
     // spdlog::info("Occupying voxel grid by mesh");
     for (int i = 0; i < grid_size[0]; ++i) {
     for (int j = 0; j < grid_size[1]; ++j) {
@@ -46,11 +41,7 @@ void VoxelGrid::occupy_by_mesh(std::shared_ptr<const Z_Map> z_map, size_t dilate
 
 void VoxelGrid::occupy_by_mesh_filter(std::shared_ptr<const open3d::geometry::TriangleMesh> mesh_f, double occupy_expand)
 {
-    // 原实现用 RaycastingScene::ComputeSignedDistance（0.14 缺符号），
-    // 改为 legacy PointCloud::ComputePointCloudDistance（KDTree 最近表面采样点距离），
-    // 体素中心到场地表面距离低于 occupy_expand 即认为贴在场地上而被占据。
     const int sample_point_num = 50000;
-    // 0.14 的 SamplePointsUniformly 非 const，mesh_f 是 const 指针，这里只读采样不修改
     auto samples = std::const_pointer_cast<open3d::geometry::TriangleMesh>(mesh_f)->SamplePointsUniformly(sample_point_num);
 
     open3d::geometry::PointCloud centers;

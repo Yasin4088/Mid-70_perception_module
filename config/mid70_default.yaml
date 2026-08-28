@@ -83,6 +83,7 @@
 
 /target_visualizer:
   ros__parameters:
+    # 启动开关（launch 读取；在launch中设置（88行））
     # 地图底图路径
     map_path: "/home/robot/Mid-70_perception_module/unused/map.png"
 

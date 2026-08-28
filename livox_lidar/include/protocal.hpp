@@ -6,7 +6,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include "fast_crc.hpp"
 
-namespace livox_v1_lidar {
+namespace livox_lidar {
 namespace protocal {
 
 using namespace boost::endian;

@@ -23,7 +23,6 @@ class TargetVisualizer(Node):
         super().__init__('target_visualizer')
         self.get_logger().info('Initializing target_visualizer...')
         # 地图底图与实际场地尺寸，接入新项目时按需覆盖
-        # radar_bringup 包已拆除：map.png 在工作空间顶层 resource/，可用 map_path 参数覆盖
         default_map = '/home/robot/Mid-70_perception_module/resource/map.png'
         self.declare_parameter('map_path', default_map)
         self.declare_parameter('real_width', 28.0)

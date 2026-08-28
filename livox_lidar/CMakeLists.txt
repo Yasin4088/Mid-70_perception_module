@@ -22,7 +22,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 target_compile_features(${PROJECT_NAME} PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
 rclcpp_components_register_node(${PROJECT_NAME}
-  PLUGIN livox_v1_lidar::LidarPublisher
+  PLUGIN livox_lidar::LidarPublisher
   EXECUTABLE ${PROJECT_NAME}_node
 )
 

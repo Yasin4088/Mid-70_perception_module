@@ -34,15 +34,10 @@ struct Z_Map {
         , z_map(Eigen::MatrixXf::Zero(grid_size[0], grid_size[1]))
     {
         if (!mesh || mesh->IsEmpty()) {
-            // 无场地 mesh：z_map 保持全 0，即默认地面高度 0
-            // （与 project_ground 越界分支返回 z=0 的既有约定一致）
             return;
         }
-        // apt libopen3d-dev 0.14.1 的头文件带 RaycastingScene.h 但库没有实现
-        // （该 API 是 0.16 才加入的），运行时符号缺失会崩。改用 legacy API：
         // 表面均匀采样 + KDTree 最近邻，取柱中心 (x,y) 最近表面点的 z 作为该柱场地高度。
         const int sample_point_num = 100000;
-        // 0.14 的 SamplePointsUniformly 非 const，mesh 是 const 指针，这里只读采样不修改
         auto samples = std::const_pointer_cast<open3d::geometry::TriangleMesh>(mesh)->SamplePointsUniformly(sample_point_num);
         open3d::geometry::KDTreeFlann kdtree(*samples);
         for (int i = 0; i < grid_size[0]; ++i) {

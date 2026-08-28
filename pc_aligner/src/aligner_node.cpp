@@ -27,7 +27,6 @@ AlignerNode::AlignerNode() : Node("pc_aligner")
     declare_parameter("align_model", "mesh");
     declare_parameter("mesh", "bg2align.stl");
     declare_parameter("pointcloud", "bg2align.pcd");
-    // radar_bringup 包已拆除：场地模型统一放工作空间顶层 resource/
     declare_parameter("resource_path", "/home/robot/Mid-70_perception_module/resource");
 
     declare_parameter("manual_crop.min", std::vector<double> { 0, -15., -15. });
@@ -48,7 +47,6 @@ AlignerNode::AlignerNode() : Node("pc_aligner")
 
     tf_buffer = std::make_shared<tf2_ros::Buffer>(get_clock());
     tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
-    tf_broadcaster = std::make_shared<tf2_ros::TransformBroadcaster>(this);
     tf_broadcaster = std::make_shared<tf2_ros::TransformBroadcaster>(this);
     marker_pub = create_publisher<visualization_msgs::msg::MarkerArray>("selected_point", tf2_ros::StaticBroadcasterQoS());
     prepare_meshes();

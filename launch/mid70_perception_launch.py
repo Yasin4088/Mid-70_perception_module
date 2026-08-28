@@ -8,9 +8,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    # radar_bringup 包已拆除：config/ 直接位于工作空间顶层，按 launch 文件位置推导
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config', 'mid70_default.yaml')
-    # rviz2 配置文件（工作空间根目录），随 launch 一起打开，无需手动启动 rviz2
     rviz_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Mid-70_perception_module.rviz')
 
     enable_lidar = LaunchConfiguration('lidar', default='true')
@@ -26,7 +24,7 @@ def generate_launch_description():
     tf_qz = LaunchConfiguration('tf_qz', default='0.0')
     tf_qw = LaunchConfiguration('tf_qw', default='1.0')
 
-    # Livox Mid-70 驱动（根命名空间，节点名 livox_lidar → 话题 /pc_raw，帧 livox_lidar_frame）
+    # Livox Mid-70 驱动
     livox_node = Node(
         package='livox_lidar',
         executable='livox_lidar_node',
@@ -35,9 +33,7 @@ def generate_launch_description():
         condition=IfCondition(enable_lidar),
     )
 
-    # world → livox_lidar_frame 静态 TF（雷达安装位姿）。
-    # 注意：pc_detector 启动时阻塞等待该 TF，没有它节点会一直等待；
-    # 启动 pc_aligner 时由对齐结果接管 world TF，不再发静态 TF。
+    # world → livox_lidar_frame 静态 TF
     static_tf_node = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -48,7 +44,7 @@ def generate_launch_description():
         condition=UnlessCondition(enable_align),
     )
 
-    # 点云检测 + 跟踪（根命名空间，与 livox 的相对话题 <lidar>/pc_raw 对应）
+    # 点云检测 + 跟踪
     detector_node = Node(
         package='pc_detector',
         executable='pc_detector_node',
@@ -57,7 +53,7 @@ def generate_launch_description():
         output='both',
     )
 
-    # 可选：点云对场地模型 ICP 对齐，发布 world TF
+    # 点云对场地模型 ICP 对齐，发布 world TF
     aligner_node = Node(
         package='pc_aligner',
         executable='pc_aligner',
@@ -67,16 +63,17 @@ def generate_launch_description():
         condition=IfCondition(enable_align),
     )
 
-    # 可选：跟踪目标可视化
+    # 跟踪目标可视化
     visualizer_node = Node(
         package='target_visualizer',
         executable='target_visualizer',
         name='target_visualizer',
+        parameters=[config_path],
         output='both',
         condition=IfCondition(enable_visualizer),
     )
 
-    # rviz2 可视化（默认启动，加载 Mid-70_perception_module.rviz；无显示环境可 rviz:=false 关闭）
+    # rviz2 可视化
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
@@ -89,7 +86,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('lidar', default_value='true', description='启动 Livox Mid-70 驱动'),
         DeclareLaunchArgument('align', default_value='false', description='启动 pc_aligner（对齐后由它发布 world TF）'),
-        DeclareLaunchArgument('visualizer', default_value='false', description='启动 target_visualizer'),
+        DeclareLaunchArgument('visualizer', default_value='true', description='启动 target_visualizer'),
         DeclareLaunchArgument('rviz', default_value='true', description='启动 rviz2 可视化（加载 Mid-70_perception_module.rviz）'),
         DeclareLaunchArgument('tf_x', default_value='0.0', description='静态 TF world→livox_lidar_frame 平移 x (m)'),
         DeclareLaunchArgument('tf_y', default_value='0.0', description='静态 TF world→livox_lidar_frame 平移 y (m)'),

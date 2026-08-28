@@ -1,8 +1,6 @@
-
 #pragma once
 
 #include <Eigen/Core>
-
 
 namespace pc_detector {
 class KalmanFilter {

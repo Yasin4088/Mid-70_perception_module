@@ -10,6 +10,8 @@
 
 using namespace pc_detector;
 
+//l_ctx: lidar context
+
 DetectorNode::DetectorNode(const rclcpp::NodeOptions& options)
     : Node("pc_detector", options)
 {
@@ -23,7 +25,6 @@ DetectorNode::DetectorNode(const rclcpp::NodeOptions& options)
 
 void DetectorNode::prepare_lidars()
 {
-    // 只接单台 livox 雷达：帧名前缀硬编码（livox 节点 frame_id = <节点名>_frame）
     const std::vector<std::string> lidar_names { "livox_lidar" };
 
     tf_buffer = std::make_shared<tf2_ros::Buffer>(get_clock());
@@ -32,14 +33,12 @@ void DetectorNode::prepare_lidars()
     for (const auto& lidar_name : lidar_names) {
         RCLCPP_INFO(get_logger(), "Preparing lidar: %s", lidar_name.c_str());
         std::string tf_name = lidar_name + "_frame";
-        // 雷达在根命名空间发布 /pc_raw，话题不再带 {lidar_name} 前缀（单雷达布局）
         std::string topic_name = "pc_raw";
         auto l_ctx = std::make_shared<LidarContext>();
 
         // 获取世界变换
         while (true) {
             if (!rclcpp::ok()) {
-                // Ctrl-C 打断启动等待：优雅退出，而不是让异常逃逸导致 SIGABRT
                 RCLCPP_INFO(get_logger(), "Interrupted while waiting for transform: %s, exiting", tf_name.c_str());
                 std::exit(0);
             }
@@ -66,7 +65,6 @@ void DetectorNode::prepare_lidars()
 void DetectorNode::prepare_meshes()
 {
     declare_parameter("mesh.enable", false);
-    // radar_bringup 包已拆除：场地模型统一放工作空间顶层 resource/，路径走参数
     declare_parameter("mesh.resource_path", "/home/robot/Mid-70_perception_module/resource");
     if (!get_parameter("mesh.enable").as_bool()) {
         // 无场地模型环境：跳过背景滤波网格加载，纯聚类跟踪
@@ -151,8 +149,6 @@ void DetectorNode::prepare_voxel_grid(LidarContext& l_ctx)
         { size_max[0], size_max[1], size_max[2] },
         voxel_size });
 
-    // 场地柱高度图（Z_Map）需在体素占据之前建好（occupy_by_mesh 用柱高度判断遮挡）。
-    // mesh_ori 为空（mesh.enable=False 或加载失败）时高度图全 0，与旧行为一致。
     if (!TargetMap::Target::z_map) {
         TargetMap::Target::z_map = std::make_shared<Z_Map>(
             Eigen::Vector3d { size_min[0], size_min[1], size_min[2] },
@@ -199,7 +195,6 @@ void DetectorNode::prepare_detector()
         { "strict.eps", 0.15 },
     });
 
-    // Z_Map 已在 prepare_voxel_grid 创建（须在体素占据之前）；此处兜底（如无雷达时）
     if (!TargetMap::Target::z_map) {
         auto min = get_parameter("voxel_grid.size.min").as_double_array();
         auto max = get_parameter("voxel_grid.size.max").as_double_array();

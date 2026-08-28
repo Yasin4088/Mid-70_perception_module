@@ -60,10 +60,6 @@ inline bool check_lidar_msg(const sensor_msgs::msg::PointCloud2& msg)
         RCLCPP_ERROR(rclcpp::get_logger("check_lidar_msg"), "point cloud fields[4] error");
         return false;
     }
-    // if (msg.fields[5].name != "tag" || msg.fields[5].offset != 17 || msg.fields[5].datatype != sensor_msgs::msg::PointField::UINT8 || msg.fields[4].count != 1) {
-    //     RCLCPP_ERROR(rclcpp::get_logger("check_lidar_msg"), "point cloud fields[4] error");
-    //     return false;
-    // }
     if (msg.fields[6].name != "timestamp" || msg.fields[6].offset != 18 || msg.fields[6].datatype != sensor_msgs::msg::PointField::FLOAT64 || msg.fields[5].count != 1) {
         RCLCPP_ERROR(rclcpp::get_logger("check_lidar_msg"), "point cloud fields[6] error");
         return false;

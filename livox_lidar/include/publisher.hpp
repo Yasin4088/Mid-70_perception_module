@@ -18,7 +18,7 @@
 
 #include <boost/asio.hpp>
 
-namespace livox_v1_lidar {
+namespace livox_lidar {
 
 using sensor_msgs::msg::PointCloud2;
 using sensor_msgs::msg::PointField;

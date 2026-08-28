@@ -1,6 +1,6 @@
 #include "publisher.hpp"
 
-using namespace livox_v1_lidar;
+using namespace livox_lidar;
 
 void LidarPublisher::recv_spin()
 {
@@ -20,8 +20,6 @@ void LidarPublisher::recv_spin()
             ctx.run();
         }
         if (error && error != boost::asio::error::message_size) {
-            // 1s 无数据超时后 cancel() 产生的 operation_aborted 是正常超时路径,不是真正的错误;
-            // 其余错误才报 ERROR 并触发重连
             if (error != boost::asio::error::operation_aborted) {
                 RCLCPP_ERROR(get_logger(), "Receiver error: %s", error.message().c_str());
             }
@@ -121,4 +119,4 @@ LidarPublisher::~LidarPublisher()
 }
 
 #include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(livox_v1_lidar::LidarPublisher)
+RCLCPP_COMPONENTS_REGISTER_NODE(livox_lidar::LidarPublisher)
