@@ -37,6 +37,8 @@ AlignerNode::AlignerNode() : Node("pc_aligner")
     auto init_trans = declare_parameter("init_trans", std::vector<double> { 0., 0., 0., 1., 0., 0., 0. });
 
     middle_tf = std::make_shared<geometry_msgs::msg::TransformStamped>();
+    middle_tf->header.frame_id = SAMPLE_LIDAR_FRAME;
+    middle_tf->child_frame_id = "middle";
     middle_tf->transform.translation.x = init_trans[0];
     middle_tf->transform.translation.y = init_trans[1];
     middle_tf->transform.translation.z = init_trans[2];

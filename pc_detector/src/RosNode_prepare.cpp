@@ -35,6 +35,7 @@ void DetectorNode::prepare_lidars()
         std::string tf_name = lidar_name + "_frame";
         std::string topic_name = "pc_raw";
         auto l_ctx = std::make_shared<LidarContext>();
+        l_ctx->frame_id = tf_name;
 
         // 获取世界变换
         while (true) {
@@ -121,6 +122,7 @@ void DetectorNode::prepare_meshes()
             RCLCPP_ERROR(get_logger(), "pc_filter is null");
             return;
         }
+        pc_filter->Translate(init_translate);
     }
 
     RCLCPP_INFO(get_logger(), "meshes prepared");

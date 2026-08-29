@@ -36,18 +36,28 @@ struct Z_Map {
         if (!mesh || mesh->IsEmpty()) {
             return;
         }
-        // 表面均匀采样 + KDTree 最近邻，取柱中心 (x,y) 最近表面点的 z 作为该柱场地高度。
+        // 表面均匀采样，按 XY 栅格取最低表面点作为该柱的地面高度。
+        // 原实现从 z=max 的查询点找 3D 最近邻，容易被 STL 中的高处结构吸走，
+        // 导致整根柱子低于该高度的点都被误判为静态占用。
         const int sample_point_num = 100000;
         auto samples = std::const_pointer_cast<open3d::geometry::TriangleMesh>(mesh)->SamplePointsUniformly(sample_point_num);
-        open3d::geometry::KDTreeFlann kdtree(*samples);
+        Eigen::MatrixXi hit_count = Eigen::MatrixXi::Zero(grid_size[0], grid_size[1]);
+        for (const auto& pt : samples->points_) {
+            if ((pt.array() >= bbox.max_bound_.array()).any() || (pt.array() < bbox.min_bound_.array()).any())
+                continue;
+            Eigen::Vector2d pt_grid = (pt.head<2>() - bbox.min_bound_(Eigen::seq(0, 1))) / voxel_size;
+            Eigen::Vector2i idx = pt_grid.cast<int>();
+            if ((idx.array() >= grid_size(Eigen::seq(0, 1)).array()).any() || (idx.array() < 0).any())
+                continue;
+            if (hit_count(idx(0), idx(1)) == 0 || pt.z() < z_map(idx(0), idx(1)))
+                z_map(idx(0), idx(1)) = static_cast<float>(pt.z());
+            hit_count(idx(0), idx(1))++;
+        }
+        // 未采样到的格子保持 0m 作为保守地面高度，避免被高处模型误填。
         for (int i = 0; i < grid_size[0]; ++i) {
             for (int j = 0; j < grid_size[1]; ++j) {
-                Eigen::Vector3d query = get_grid_center({ i, j, 0 });
-                query(2) = bbox.max_bound_(2);
-                std::vector<int> idx;
-                std::vector<double> dist;
-                if (kdtree.SearchKNN(query, 1, idx, dist) > 0)
-                    z_map(i, j) = static_cast<float>(samples->points_[idx[0]].z());
+                if (hit_count(i, j) == 0)
+                    z_map(i, j) = 0.0f;
             }
         }
     }

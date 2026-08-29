@@ -10,7 +10,8 @@ unused/
 # 大文件
 **.stp
 
-# 内部文件
+# 其他文件
 todolist.md
 scripts/
 **.pdf
+.vscode/

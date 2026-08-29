@@ -82,15 +82,28 @@ void DetectorNode::pc_recv_callback(const sensor_msgs::msg::PointCloud2& msg, co
 {
     if (!radar_interface::check_lidar_msg(msg))
         return;
+    const auto& source_frame = msg.header.frame_id.empty() ? l_ctx->frame_id : msg.header.frame_id;
+    try {
+        l_ctx->trans = tf2::transformToEigen(
+            tf_buffer->lookupTransform("world", source_frame, tf2::TimePointZero, tf2::durationFromSec(0.02)));
+    } catch (const tf2::TransformException& e) {
+        RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 1000,
+            "Waiting for transform world <- %s. Drop current point cloud. Exception: %s",
+            source_frame.c_str(), e.what());
+        return;
+    }
+
     UnpackedPcMsg unpacked;
     unpacked.timestamp = msg.header.stamp;
     unpacked.points.reserve(msg.height * msg.width);
-    if (msg.height * msg.width * msg.point_step != msg.data.size()) {
+    const size_t point_count = msg.height * msg.width;
+    if (point_count * msg.point_step != msg.data.size()) {
         RCLCPP_ERROR(get_logger(), "point cloud size error: %lu", msg.data.size());
         return;
     }
     auto points = reinterpret_cast<const radar_interface::LivoxPointXyzrtlt*>(msg.data.data());
-    for (size_t i = 0; i < msg.height * msg.width; ++i)
+    for (size_t i = 0; i < point_count; ++i)
     {
         Eigen::Vector3d pt(points[i].x, points[i].y, points[i].z);
         pt = l_ctx->trans * pt;
@@ -99,6 +112,12 @@ void DetectorNode::pc_recv_callback(const sensor_msgs::msg::PointCloud2& msg, co
         // if (!voxel_grid->is_occupied(pt) && (points[i].tag & 0b111111) == 0)
         if (!l_ctx->voxel_grid.is_occupied(pt))
             unpacked.points.emplace_back(std::move(pt));
+    }
+    if (point_count > 0 && unpacked.points.empty()) {
+        RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 1000,
+            "All %zu lidar points were filtered. Check world<-lidar TF, voxel_grid.size, and mesh filter alignment.",
+            point_count);
     }
     // pub_filtered_pc(unpacked.points);
     pc_buffer.emplace_back(std::move(unpacked));

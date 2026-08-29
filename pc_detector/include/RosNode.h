@@ -16,6 +16,7 @@
 #include <future>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <open3d/Open3D.h>
@@ -34,6 +35,7 @@ struct UnpackedPcMsg {
 
 struct LidarContext {
     using SharedPtr = std::shared_ptr<LidarContext>;
+    std::string frame_id;
     Eigen::Isometry3d trans;
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscriber;
     VoxelGrid voxel_grid;
