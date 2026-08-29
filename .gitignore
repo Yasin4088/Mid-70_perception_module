@@ -6,3 +6,11 @@
 
 # 旧赛季文件
 unused/
+
+# 大文件
+**.stp
+
+# 内部文件
+todolist.md
+scripts/
+**.pdf
