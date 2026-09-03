@@ -71,10 +71,17 @@ class TargetVisualizer(Node):
 
 def main():
     rclpy.init()
-    target_visualizer = TargetVisualizer()
-    rclpy.spin(target_visualizer)
-    target_visualizer.destroy_node()
-    rclpy.shutdown()
+    target_visualizer = None
+    try:
+        target_visualizer = TargetVisualizer()
+        rclpy.spin(target_visualizer)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if target_visualizer is not None:
+            target_visualizer.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

@@ -1,5 +1,28 @@
 #include "aligner_node.hpp"
+#include <algorithm>
+#include <cmath>
 #include <tf2_eigen/tf2_eigen.hpp>
+
+namespace {
+
+double z_percentile(const open3d::geometry::PointCloud& pc, double percentile)
+{
+    if (pc.points_.empty())
+        return 0.;
+
+    std::vector<double> z_values;
+    z_values.reserve(pc.points_.size());
+    for (const auto& pt : pc.points_)
+        z_values.push_back(pt.z());
+
+    std::sort(z_values.begin(), z_values.end());
+    const auto idx = std::min(
+        z_values.size() - 1,
+        static_cast<size_t>(percentile * static_cast<double>(z_values.size() - 1)));
+    return z_values[idx];
+}
+
+}
 
 void AlignerNode::auto_align(std::shared_ptr<open3d::geometry::PointCloud> sample_pc, Eigen::Isometry3d middle_trans, bool keep_last)
 {
@@ -47,42 +70,74 @@ void AlignerNode::auto_align(std::shared_ptr<open3d::geometry::PointCloud> sampl
     else
         cropped->Transform(trans);
 
-    auto reg = [&](long max_iteration) {
-        if (align_using_mesh)
+    auto reg = [&](long max_iteration, double max_corr_dist, bool force_point_to_point = false) {
+        if (align_using_mesh && !force_point_to_point)
             return open3d::pipelines::registration::RegistrationICP(
                 *cropped, *to_align_pc,
-                get_parameter("max_corr_dist").as_double(),
+                max_corr_dist,
                 Eigen::Matrix4d::Identity(),
                 open3d::pipelines::registration::TransformationEstimationPointToPlane(),
                 open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, max_iteration));
         else
             return open3d::pipelines::registration::RegistrationICP(
                 *cropped, *to_align_pc,
-                get_parameter("max_corr_dist").as_double(),
+                max_corr_dist,
                 Eigen::Matrix4d::Identity(),
                 open3d::pipelines::registration::TransformationEstimationPointToPoint(),
                 open3d::pipelines::registration::ICPConvergenceCriteria(1e-6, 1e-6, max_iteration)); };
-    if (get_parameter("vis_auto").as_bool())
-    {
-        auto vis = open3d::visualization::Visualizer();
-        vis.CreateVisualizerWindow("Auto Aligner", 1920, 1080, 50, 50);
-        vis.AddGeometry(cropped);
-        vis.AddGeometry(to_align_pc);
-
-        for (unsigned i = 0; i < get_parameter("max_iteration").as_int() && rclcpp::ok(); ++i) {
-            auto reg_p2l = reg(1);
-            vis.UpdateGeometry(cropped);
-            vis.PollEvents();
-            vis.UpdateRender();
-            RCLCPP_INFO(get_logger(), "Align RMSE: %f, Fitness: %f", reg_p2l.inlier_rmse_, reg_p2l.fitness_);
-            cropped->Transform(reg_p2l.transformation_);
-            trans = reg_p2l.transformation_ * trans;
+    Eigen::Matrix4d raw_trans = trans;
+    bool aligned = false;
+    const double max_corr_dist = get_parameter("max_corr_dist").as_double();
+    const double coarse_corr_dist = std::max(max_corr_dist, 10.0);
+    for (unsigned i = 0; i < get_parameter("max_iteration").as_int() && rclcpp::ok(); ++i) {
+        auto reg_p2l = reg(1, i == 0 ? coarse_corr_dist : max_corr_dist);
+        if (i == 0 && align_using_mesh && (!std::isfinite(reg_p2l.inlier_rmse_) || !std::isfinite(reg_p2l.fitness_) || reg_p2l.fitness_ <= 0.)) {
+            RCLCPP_WARN(
+                get_logger(),
+                "Point-to-plane coarse align failed. Retry first iteration with point-to-point, max_corr_dist: %.3f",
+                coarse_corr_dist);
+            reg_p2l = reg(1, coarse_corr_dist, true);
         }
-    } else {
-        auto reg_p2l = reg(get_parameter("max_iteration").as_int());
+        if (!std::isfinite(reg_p2l.inlier_rmse_) || !std::isfinite(reg_p2l.fitness_) || reg_p2l.fitness_ <= 0.) {
+            RCLCPP_WARN(
+                get_logger(),
+                "Stop auto align at iteration %u: invalid ICP result. RMSE: %f, Fitness: %f",
+                i,
+                reg_p2l.inlier_rmse_,
+                reg_p2l.fitness_);
+            break;
+        }
         RCLCPP_INFO(get_logger(), "Align RMSE: %f, Fitness: %f", reg_p2l.inlier_rmse_, reg_p2l.fitness_);
         cropped->Transform(reg_p2l.transformation_);
-        trans = reg_p2l.transformation_ * trans;
+        raw_trans = reg_p2l.transformation_ * raw_trans;
+        aligned = true;
+    }
+
+    if (!aligned) {
+        RCLCPP_ERROR(get_logger(), "Auto align failed: no valid ICP iteration.");
+        return;
+    }
+
+    const double ground_z = z_percentile(*cropped, 0.01);
+    const double ground_shift = -ground_z;
+    cropped->Translate({ 0., 0., ground_shift });
+    raw_trans(2, 3) += ground_shift;
+    trans = raw_trans;
+    RCLCPP_INFO(get_logger(), "Normalize aligned cloud ground z by %.6f m.", ground_shift);
+
+    if (get_parameter("vis_auto_hold").as_bool()) {
+        // 关闭上一轮仍处于保持状态的窗口，避免同一节点留下多个 Open3D 窗口。
+        auto_vis_timer.reset();
+        if (auto_vis) {
+            auto_vis->DestroyVisualizerWindow();
+            auto_vis.reset();
+        }
+        auto_vis = std::make_shared<open3d::visualization::Visualizer>();
+        auto_vis->CreateVisualizerWindow("Auto Aligner", 1920, 1080, 50, 50);
+        auto_vis->AddGeometry(cropped);
+        auto_vis->AddGeometry(to_align_pc);
+        auto_vis->PollEvents();
+        auto_vis->UpdateRender();
     }
 
     // to_align_pc->PaintUniformColor({ 1, 1, 1 });
@@ -96,5 +151,20 @@ void AlignerNode::auto_align(std::shared_ptr<open3d::geometry::PointCloud> sampl
     world_tf->transform = tf2::eigenToTransform(Eigen::Affine3d(trans).inverse()).transform;
 
     tf_broadcaster->sendTransform(*world_tf);
+    log_static_tf_yaml();
     RCLCPP_INFO(get_logger(), "aligned tf prepared");
+
+    if (auto_vis) {
+        RCLCPP_INFO(get_logger(), "Auto Aligner will stay open until its window is closed.");
+        auto_vis_timer = create_wall_timer(std::chrono::milliseconds(33), [this]() {
+            if (!auto_vis || !auto_vis->PollEvents()) {
+                if (auto_vis)
+                    auto_vis->DestroyVisualizerWindow();
+                auto_vis_timer.reset();
+                auto_vis.reset();
+                return;
+            }
+            auto_vis->UpdateRender();
+        });
+    }
 }

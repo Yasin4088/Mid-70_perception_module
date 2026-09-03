@@ -9,33 +9,58 @@
     # 收包超时 单位: ms
     timeout_ms: 1000
 
+/mid70_launch:
+  ros__parameters:
+    # TF 来源模式:
+    #   static: 使用 /static_tf_world_livox_lidar 中手动填写/赛前固化的安装位姿。
+    #   align : 启动 pc_aligner，用 ICP 自动估计位姿；适合赛前标定/调试，完成后可复制日志里的雷达位姿到 static_tf。
+    tf_mode: "align"
+
+    # 节点开关:
+    enable_lidar: True
+    enable_detector: True
+    enable_visualizer: True
+    # 调试 TF/点云时设为 True；正式比赛可改回 False 节省资源。
+    enable_rviz: True
+
+/static_tf_world_livox_lidar:
+  ros__parameters:
+    # 手动/固化的雷达安装位姿
+    tf_x: 0.0
+    tf_y: 0.0
+    tf_z: 0.0
+    tf_qx: 0.0
+    tf_qy: 0.0
+    tf_qz: 0.0
+    tf_qw: 1.0
+
 /pc_detector:
   ros__parameters:
     # 缓冲区帧数
     node.buffer_frame_size: 10
 
-    # False = 通用环境：跳过 mesh 加载，纯聚类+跟踪；
-    # True  = 比赛场地：加载场地模型做体素占用滤波。
+    # False = 调试/未标定环境：跳过 mesh 加载，避免 TF 未对齐时过滤成空云；
+    # True  = 比赛场地：确认雷达在 world/mesh 中位姿正确后，加载场地模型做体素占用滤波。
     mesh.enable: True
     # 场地模型目录
     mesh.resource_path: "/home/robot/Mid-70_perception_module/resource"
     # 以下参数仅在 mesh.enable: True 时生效
     mesh.mesh_ori: "rmuc_2026_mm.stl"
-    mesh.mesh_filter: "rmuc_2026_mm.stl"
-    mesh.filter_mode: "mesh"   # option: mesh, pointcloud
+    mesh.mesh_filter: "rmuc_2026_mm.stl"  # mesh模式下的滤波模型
+    mesh.pc_filter: "rmuc_2026_filter.pcd"    # pointcloud模式下的滤波模型
+    mesh.filter_mode: "pointcloud"   # option: mesh, pointcloud
+    # 模型手动平移参数（微调）【+ 项目运行时自动平移参数（默认以模型短边中心为原点）】
     mesh.init_translate: [0.0, 0.0, 0.0]
 
     # 体素网格滤波器体素大小 单位: m
     voxel_grid.voxel_size: 0.1
-    # 膨胀的核半径大小 单位: 体素
+    # 膨胀的核半径大小 单位: 体素（pointcloud模式）
     voxel_grid.dilate_size: 1
     # 体素网格盒大小（检测范围）单位: m
-    # 26 场地坐标 0~28.02 x 0~15.02，留边到 28.5 x 15.5；z 到 5 覆盖能量机关(3.54m)
-    # 注意: 盒外点默认视为占据被过滤，盒即检测范围（24 赛季原值为 [0.15,0.15,0]~[27.85,14.85,1.5]）
-    voxel_grid.size.min: [0.0, 0.0, 0.0]
-    voxel_grid.size.max: [28.5, 15.5, 5.0]
-    # 场地模型占用扩展大小 单位: m
-    voxel_grid.occupy_expand: 0.3
+    voxel_grid.size.min: [-1.0, -9.0, -1.0]
+    voxel_grid.size.max: [29.0, 9.0, 5.0]
+    # 场地模型占用扩展大小 单位: m（mesh模式）
+    voxel_grid.occupy_expand: 0.15
 
     # 跟踪延迟长度 单位: 帧
     target_map.last_frames: 100
@@ -85,7 +110,6 @@
 
 /target_visualizer:
   ros__parameters:
-    # 启动开关（launch 读取；在launch中设置（88行））
     # 地图底图路径
     map_path: "/home/robot/Mid-70_perception_module/resource/map.jpg"
 
@@ -95,22 +119,24 @@
     resource_path: "/home/robot/Mid-70_perception_module/resource"
     # 采样点数（攒满后自动配准）
     init_sample: 100000
-    # 配准模型均匀采样点数（26 场地 STL 预处理后调大，弥补面片采样密度）
+    # 配准模型均匀采样点数
     mesh_sample: 50000
-    # 配准裁剪盒 单位: m（对齐 26 场地 RMUC2026.pcd：0~28.02 x 0~15.02 x 0~2.4）
-    crop_box.min: [0.0, 0.0, -0.1]
-    crop_box.max: [28.5, 15.5, 3.0]
-    max_corr_dist: 0.5
+    # 配准裁剪盒 单位: m。这里裁的是 middle/雷达坐标系下的采样点，不是 world 场地坐标。
+    crop_box.min: [0.0, -30.0, -5.0]
+    crop_box.max: [50.0, 30.0, 5.0]
+    max_corr_dist: 10.0
     max_iteration: 20
     # 手动对齐相关（建议关闭，开启会进入交互选点）
     use_preselect: False
     startup_manual_align: False
-    vis_auto: True
+    # 显示并保持 Auto Aligner 窗口
+    vis_auto_hold: True
+    # ICP 完成后打印可直接复制到 /static_tf_world_livox_lidar 的静态 TF 参数。
+    print_static_tf_yaml: True
     # 对齐模型: "mesh" 或 "pointcloud"
-    # mesh 模式 = PointToPlane ICP（收敛稳、对初值不敏感），比赛推荐；
-    # pointcloud 模式 = PointToPoint ICP（模型点密，但需要较好的初始位姿）。
     align_model: "mesh"
     mesh: "rmuc_2026_mm.stl"
+    pointcloud: "RMUC2026.pcd"
     # middle 系初始位姿 [x, y, z, qw, qx, qy, qz]
     init_trans: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
     # TF 重发间隔 单位: ms

@@ -1,28 +1,66 @@
 import os
+import yaml
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.conditions import IfCondition, UnlessCondition
-from launch.substitutions import LaunchConfiguration
+from launch.actions import TimerAction
 from launch_ros.actions import Node
+
+
+def load_config(config_path):
+    with open(config_path, 'r', encoding='utf-8') as config_file:
+        return yaml.safe_load(config_file) or {}
+
+
+def load_node_params(config, node_name):
+    return config.get(node_name, {}).get('ros__parameters', {})
+
+
+def to_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in ('true', '1', 'yes', 'on')
+    return bool(value)
+
+
+def load_tf_mode(launch_params):
+    tf_mode = str(launch_params.get('tf_mode', '')).strip().lower()
+    if tf_mode in ('static', 'align'):
+        return tf_mode
+    if tf_mode:
+        print(f"[mid70_launch] Unknown tf_mode '{tf_mode}', fallback to 'static'.")
+    return 'static'
+
+
+def load_static_tf_params(config_path):
+    defaults = {
+        'tf_x': 0.0,
+        'tf_y': 0.0,
+        'tf_z': 0.0,
+        'tf_qx': 0.0,
+        'tf_qy': 0.0,
+        'tf_qz': 0.0,
+        'tf_qw': 1.0,
+    }
+    config = load_config(config_path)
+    params = load_node_params(config, '/static_tf_world_livox_lidar')
+    return {key: str(params.get(key, value)) for key, value in defaults.items()}
 
 
 def generate_launch_description():
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config', 'mid70_default.yaml')
     rviz_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Mid-70_perception_module.rviz')
+    config = load_config(config_path)
+    launch_params = load_node_params(config, '/mid70_launch')
+    static_tf = load_static_tf_params(config_path)
 
-    enable_lidar = LaunchConfiguration('lidar', default='true')
-    enable_align = LaunchConfiguration('align', default='false')
-    enable_visualizer = LaunchConfiguration('visualizer', default='false')
-    enable_rviz = LaunchConfiguration('rviz', default='true')
-
-    tf_x = LaunchConfiguration('tf_x', default='0.0')
-    tf_y = LaunchConfiguration('tf_y', default='0.0')
-    tf_z = LaunchConfiguration('tf_z', default='0.0')
-    tf_qx = LaunchConfiguration('tf_qx', default='0.0')
-    tf_qy = LaunchConfiguration('tf_qy', default='0.0')
-    tf_qz = LaunchConfiguration('tf_qz', default='0.0')
-    tf_qw = LaunchConfiguration('tf_qw', default='1.0')
+    enable_lidar = to_bool(launch_params.get('enable_lidar', True))
+    enable_detector = to_bool(launch_params.get('enable_detector', True))
+    tf_mode = load_tf_mode(launch_params)
+    enable_static_tf = tf_mode == 'static'
+    enable_align = tf_mode == 'align'
+    enable_visualizer = to_bool(launch_params.get('enable_visualizer', False))
+    enable_rviz = to_bool(launch_params.get('enable_rviz', False))
 
     # Livox Mid-70 驱动
     livox_node = Node(
@@ -30,7 +68,6 @@ def generate_launch_description():
         executable='livox_lidar_node',
         name='livox_lidar',
         parameters=[config_path],
-        condition=IfCondition(enable_lidar),
     )
 
     # world → livox_lidar_frame 静态 TF
@@ -38,10 +75,9 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_tf_world_livox_lidar',
-        arguments=['--x', tf_x, '--y', tf_y, '--z', tf_z,
-                   '--qx', tf_qx, '--qy', tf_qy, '--qz', tf_qz, '--qw', tf_qw,
+        arguments=['--x', static_tf['tf_x'], '--y', static_tf['tf_y'], '--z', static_tf['tf_z'],
+                   '--qx', static_tf['tf_qx'], '--qy', static_tf['tf_qy'], '--qz', static_tf['tf_qz'], '--qw', static_tf['tf_qw'],
                    '--frame-id', 'world', '--child-frame-id', 'livox_lidar_frame'],
-        condition=UnlessCondition(enable_align),
     )
 
     # 点云检测 + 跟踪
@@ -60,7 +96,6 @@ def generate_launch_description():
         name='pc_aligner',
         parameters=[config_path],
         output='both',
-        condition=IfCondition(enable_align),
     )
 
     # 跟踪目标可视化
@@ -70,7 +105,6 @@ def generate_launch_description():
         name='target_visualizer',
         parameters=[config_path],
         output='both',
-        condition=IfCondition(enable_visualizer),
     )
 
     # rviz2 可视化
@@ -80,25 +114,27 @@ def generate_launch_description():
         name='rviz2',
         arguments=['-d', rviz_config_path],
         output='screen',
-        condition=IfCondition(enable_rviz),
     )
 
-    return LaunchDescription([
-        DeclareLaunchArgument('lidar', default_value='true', description='启动 Livox Mid-70 驱动'),
-        DeclareLaunchArgument('align', default_value='false', description='启动 pc_aligner（对齐后由它发布 world TF）'),
-        DeclareLaunchArgument('visualizer', default_value='true', description='启动 target_visualizer'),
-        DeclareLaunchArgument('rviz', default_value='true', description='启动 rviz2 可视化（加载 Mid-70_perception_module.rviz）'),
-        DeclareLaunchArgument('tf_x', default_value='0.0', description='静态 TF world→livox_lidar_frame 平移 x (m)'),
-        DeclareLaunchArgument('tf_y', default_value='0.0', description='静态 TF world→livox_lidar_frame 平移 y (m)'),
-        DeclareLaunchArgument('tf_z', default_value='0.0', description='静态 TF world→livox_lidar_frame 平移 z (m)'),
-        DeclareLaunchArgument('tf_qx', default_value='0.0', description='静态 TF world→livox_lidar_frame 旋转 qx'),
-        DeclareLaunchArgument('tf_qy', default_value='0.0', description='静态 TF world→livox_lidar_frame 旋转 qy'),
-        DeclareLaunchArgument('tf_qz', default_value='0.0', description='静态 TF world→livox_lidar_frame 旋转 qz'),
-        DeclareLaunchArgument('tf_qw', default_value='1.0', description='静态 TF world→livox_lidar_frame 旋转 qw'),
-        livox_node,
-        static_tf_node,
-        detector_node,
-        aligner_node,
-        visualizer_node,
-        rviz_node,
-    ])
+    # 启动节点
+    launch_entities = []
+    if enable_lidar:
+        launch_entities.append(livox_node)
+    if enable_static_tf:
+        launch_entities.append(static_tf_node)
+    if enable_detector:
+        if enable_align:
+            launch_entities.append(TimerAction(period=3.0, actions=[detector_node]))
+        else:
+            launch_entities.append(detector_node)
+    if enable_align:
+        launch_entities.append(aligner_node)
+    if enable_visualizer:
+        launch_entities.append(visualizer_node)
+    if enable_rviz:
+        if enable_align:
+            launch_entities.append(TimerAction(period=3.0, actions=[rviz_node]))
+        else:
+            launch_entities.append(rviz_node)
+
+    return LaunchDescription(launch_entities)

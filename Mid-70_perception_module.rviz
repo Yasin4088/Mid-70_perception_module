@@ -85,7 +85,7 @@ Visualization Manager:
       Topic:
         Depth: 5
         Durability Policy: Volatile
-        Filter size: 10
+        Filter size: 100
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /pc_raw
@@ -119,7 +119,7 @@ Visualization Manager:
       Topic:
         Depth: 5
         Durability Policy: Volatile
-        Filter size: 10
+        Filter size: 100
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /pc_detector/pc_filtered

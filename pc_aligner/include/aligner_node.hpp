@@ -35,10 +35,12 @@ private:
     rclcpp::Service<std_srvs::srv::Empty>::SharedPtr manual_align_service;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub;
     rclcpp::TimerBase::SharedPtr tf_pub_timer;
+    rclcpp::TimerBase::SharedPtr auto_vis_timer;
 
     std::shared_ptr<open3d::geometry::TriangleMesh> mesh_ori;
     std::shared_ptr<open3d::geometry::PointCloud> pc_align;
     std::shared_ptr<PcSampleContext> pc_sample_context;
+    std::shared_ptr<open3d::visualization::Visualizer> auto_vis;
     geometry_msgs::msg::TransformStamped::SharedPtr world_tf, middle_tf;
 
     /// @brief 拿到相机相对雷达的坐标，通过 tf2 对外发布
@@ -52,6 +54,7 @@ private:
     void sample_sub_callback(const sensor_msgs::msg::PointCloud2& msg);
     void timer_callback();
     Eigen::Isometry3d get_middle_trans();
+    void log_static_tf_yaml() const;
     void prepare_meshes();
     void auto_align(std::shared_ptr<open3d::geometry::PointCloud> sample_pc, Eigen::Isometry3d pnp_trans, bool keep_last = false);
 

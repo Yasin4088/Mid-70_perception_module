@@ -8,6 +8,19 @@
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <vector>
 
+namespace {
+
+Eigen::Vector3d model_short_edge_center_to_origin(const Eigen::Vector3d& min_bound, const Eigen::Vector3d& max_bound)
+{
+    const double x_span = max_bound.x() - min_bound.x();
+    const double y_span = max_bound.y() - min_bound.y();
+    if (x_span >= y_span)
+        return { -min_bound.x(), -(min_bound.y() + max_bound.y()) * 0.5, 0. };
+    return { -(min_bound.x() + max_bound.x()) * 0.5, -min_bound.y(), 0. };
+}
+
+}
+
 AlignerNode::AlignerNode() : Node("pc_aligner")
 {
     declare_parameter("init_sample", 100000);
@@ -23,7 +36,8 @@ AlignerNode::AlignerNode() : Node("pc_aligner")
     declare_parameter("use_preselect", false);
     declare_parameter("preselect_pcd", "preselect.pcd");
 
-    declare_parameter("vis_auto", true);
+    declare_parameter("vis_auto_hold", false);
+    declare_parameter("print_static_tf_yaml", true);
     declare_parameter("align_model", "mesh");
     declare_parameter("mesh", "bg2align.stl");
     declare_parameter("pointcloud", "bg2align.pcd");
@@ -132,6 +146,33 @@ Eigen::Isometry3d AlignerNode::get_middle_trans()
     throw std::runtime_error("Failed to get Middle trans.");
 }
 
+void AlignerNode::log_static_tf_yaml() const
+{
+    if (!get_parameter("print_static_tf_yaml").as_bool() || !world_tf || !middle_tf)
+        return;
+
+    const Eigen::Isometry3d lidar_to_middle = tf2::transformToEigen(*middle_tf).inverse();
+    const Eigen::Isometry3d middle_to_world = tf2::transformToEigen(*world_tf).inverse();
+    const Eigen::Isometry3d lidar_to_world = middle_to_world * lidar_to_middle;
+    Eigen::Quaterniond q(lidar_to_world.rotation());
+    q.normalize();
+    const auto& t = lidar_to_world.translation();
+
+    RCLCPP_INFO(
+        get_logger(),
+        "Static TF YAML for tf_mode: \"static\":\n"
+        "/static_tf_world_livox_lidar:\n"
+        "  ros__parameters:\n"
+        "    tf_x: %.9f\n"
+        "    tf_y: %.9f\n"
+        "    tf_z: %.9f\n"
+        "    tf_qx: %.9f\n"
+        "    tf_qy: %.9f\n"
+        "    tf_qz: %.9f\n"
+        "    tf_qw: %.9f",
+        t.x(), t.y(), t.z(), q.x(), q.y(), q.z(), q.w());
+}
+
 void AlignerNode::prepare_meshes()
 {
     std::string align_model = get_parameter("align_model").as_string();
@@ -145,9 +186,15 @@ void AlignerNode::prepare_meshes()
         mesh_ori->ComputeVertexNormals();
         mesh_ori->ComputeTriangleNormals();
         mesh_ori->Scale(0.001, Eigen::Vector3d::Zero());
+        const auto origin_shift = model_short_edge_center_to_origin(mesh_ori->GetMinBound(), mesh_ori->GetMaxBound());
+        mesh_ori->Translate(origin_shift);
+        RCLCPP_INFO(get_logger(), "model origin shifted by [%.6f, %.6f, %.6f]", origin_shift.x(), origin_shift.y(), origin_shift.z());
     } else if (align_model == "pointcloud") {
         align_using_mesh = false;
         pc_align = open3d::io::CreatePointCloudFromFile(meshes_path / get_parameter("pointcloud").as_string());
+        const auto origin_shift = model_short_edge_center_to_origin(pc_align->GetMinBound(), pc_align->GetMaxBound());
+        pc_align->Translate(origin_shift);
+        RCLCPP_INFO(get_logger(), "model origin shifted by [%.6f, %.6f, %.6f]", origin_shift.x(), origin_shift.y(), origin_shift.z());
         // pc_align->EstimateNormals();
     } else {
         RCLCPP_WARN(get_logger(), "Unknown align_model: %s", align_model.c_str());

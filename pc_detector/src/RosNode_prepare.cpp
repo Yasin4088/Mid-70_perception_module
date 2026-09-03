@@ -102,6 +102,19 @@ void DetectorNode::prepare_meshes()
     mesh_ori->ComputeVertexNormals();
     mesh_ori->ComputeTriangleNormals();
     mesh_ori->Scale(0.001, Eigen::Vector3d::Zero());
+
+    const auto min_bound = mesh_ori->GetMinBound();
+    const auto max_bound = mesh_ori->GetMaxBound();
+    const double x_span = max_bound.x() - min_bound.x();
+    const double y_span = max_bound.y() - min_bound.y();
+    Eigen::Vector3d origin_shift;
+    if (x_span >= y_span)
+        origin_shift = { -min_bound.x(), -(min_bound.y() + max_bound.y()) * 0.5, 0. };
+    else
+        origin_shift = { -(min_bound.x() + max_bound.x()) * 0.5, -min_bound.y(), 0. };
+    init_translate += origin_shift;
+    RCLCPP_INFO(get_logger(), "model origin shifted by [%.6f, %.6f, %.6f]", origin_shift.x(), origin_shift.y(), origin_shift.z());
+
     mesh_ori->Translate(init_translate);
 
     if (mesh_filter_mode) {
